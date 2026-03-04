@@ -29,6 +29,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import android.util.Log
+import androidx.compose.material3.HorizontalDivider
 
 // --- DIRECTION ARTISTIQUE OFFICIELLE ---
 val CalanquesRed = Color(0xFFE51A2E)
@@ -117,10 +126,29 @@ fun MainScreen() {
 // 2. LE CONTENU DE L'ACCUEIL (Logo + future liste)
 @Composable
 fun HomeContent() {
+    // 1. On crée une liste d'état qui va se mettre à jour quand l'API répond
+    val listeActivites = remember { mutableStateListOf<Activite>() }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // 2. On lance le chargement des données au démarrage (comme ton chargerDonnees())
+    LaunchedEffect(Unit) {
+        try {
+            // On appelle l'API via ton objet Retrofit existant
+            val resultat = RetrofitClient.instance.getActivites()
+            listeActivites.clear()
+            listeActivites.addAll(resultat)
+        } catch (e: Exception) {
+            Log.e("API_ERROR", "Erreur lors du chargement : ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Logo Officiel
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Logo du Parc National des Calanques",
@@ -130,10 +158,43 @@ fun HomeContent() {
                 .padding(top = 24.dp, bottom = 16.dp),
             contentScale = ContentScale.Fit
         )
+
+        // 3. Affichage conditionnel : Spinner si ça charge, sinon la liste
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CalanquesRed)
+            }
+        } else {
+            // C'est ton nouveau RecyclerView en version Compose
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(listeActivites) { activite ->
+                    ActiviteRow(activite) // Petit composant pour chaque ligne
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActiviteRow(activite: Activite) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
         Text(
-            text = "La liste des types d'activités arrivera ici",
-            color = CalanquesGrey,
-            modifier = Modifier.padding(top = 32.dp)
+            text = activite.nom,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
         )
+        Text(
+            text = "${activite.tarif} €",
+            fontSize = 14.sp,
+            color = CalanquesRed
+        )
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp), thickness = 0.5.dp, color = Color.LightGray)
     }
 }
