@@ -1,5 +1,6 @@
 package com.example.calanques
 
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,9 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.calanques.ui.theme.CalanquesTheme
 
+
+
+// N'oublie pas d'importer HomeScreen si Android Studio le demande !
+// import com.example.calanques.HomeScreen
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        enableEdgeToEdge()
         setContent {
             // Remplace "MonTheme" par le nom du thème de ton projet (ex: CalanquesTheme)
             CalanquesTheme {
@@ -28,23 +36,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     PanierScreen()
                 }
+                // On appelle directement notre nouvel écran ici
+                MainScreen()
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CalanquesTheme {
-        Greeting("Android")
     }
 }
