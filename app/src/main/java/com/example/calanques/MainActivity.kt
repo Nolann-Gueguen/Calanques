@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             CalanquesTheme {
                 // On appelle directement notre nouvel écran ici
-                HomeScreen()
+                MainScreen()
             }
         }
     }
