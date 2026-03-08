@@ -17,13 +17,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.calanques.ui.theme.CalanquesRed
 
 // --- 1. ÉCRAN DE CONNEXION ---
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit = {}, onNavigateToSignUp: () -> Unit = {}) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    val calanquesRed = Color(0xFFE51A2E)
 
     Column(
         modifier = Modifier
@@ -81,7 +81,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}, onNavigateToSignUp: () -> Unit 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = calanquesRed)
+            colors = ButtonDefaults.buttonColors(containerColor = CalanquesRed)
         ) {
             Text("Valider", fontSize = 16.sp, color = Color.White)
         }
@@ -98,7 +98,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit = {}, onNavigateToSignUp: () -> Unit 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Pas de compte ?", color = Color.Gray)
             TextButton(onClick = { onNavigateToSignUp() }) {
-                Text("Créez-en un !", color = calanquesRed, fontWeight = FontWeight.Bold)
+                Text("Créez-en un !", color = CalanquesRed, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -120,7 +120,6 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
     // Gestion des erreurs
     var errorMessage by remember { mutableStateOf("") }
 
-    val calanquesRed = Color(0xFFE51A2E)
     val scrollState = rememberScrollState()
 
     Column(
@@ -154,7 +153,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
         if (errorMessage.isNotEmpty()) {
             Text(
                 text = errorMessage,
-                color = calanquesRed,
+                color = CalanquesRed,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -232,7 +231,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
                 }
             },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = calanquesRed)
+            colors = ButtonDefaults.buttonColors(containerColor = CalanquesRed)
         ) {
             Text("S'inscrire", fontSize = 16.sp, color = Color.White)
         }
@@ -243,7 +242,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Déjà un compte ?", color = Color.Gray)
             TextButton(onClick = { onNavigateToLogin() }) {
-                Text("Connectez-vous !", color = calanquesRed, fontWeight = FontWeight.Bold)
+                Text("Connectez-vous !", color = CalanquesRed, fontWeight = FontWeight.Bold)
             }
         }
 

@@ -16,12 +16,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// --- CHARTE GRAPHIQUE CALANQUES ---
-val CalanquesBlue = Color(0xFF4472C4)
-val CalanquesRed = Color(0xFFE51A2E)
-val CalanquesGrey = Color(0xFF555555)
-val CalanquesLightGrey = Color(0xFFF2F2F2)
+import com.example.calanques.ui.theme.CalanquesBlue
+import com.example.calanques.ui.theme.CalanquesRed
+import com.example.calanques.ui.theme.CalanquesGrey
+import com.example.calanques.ui.theme.CalanquesLightGrey
 
 // --- TYPOGRAPHIE ---
 val CustomTypography = Typography(
