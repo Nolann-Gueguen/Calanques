@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.calanques.ui.theme.CalanquesRed
+import com.example.calanques.ui.theme.CalanquesLightGrey
 
 @Composable
 fun AccountScreen() {
@@ -44,9 +46,6 @@ fun AccountScreen() {
 
 @Composable
 fun ProfileScreen(onLogout: () -> Unit, onEditProfile: () -> Unit = {}) {
-    val calanquesRed = Color(0xFFE51A2E)
-    val lightGrey = Color(0xFFF5F5F5)
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -71,7 +70,7 @@ fun ProfileScreen(onLogout: () -> Unit, onEditProfile: () -> Unit = {}) {
         // Carte d'informations détaillées
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = lightGrey),
+            colors = CardDefaults.cardColors(containerColor = CalanquesLightGrey),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -106,7 +105,7 @@ fun ProfileScreen(onLogout: () -> Unit, onEditProfile: () -> Unit = {}) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = calanquesRed)
+            colors = ButtonDefaults.buttonColors(containerColor = CalanquesRed)
         ) {
             Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
             Text("Se déconnecter", fontSize = 16.sp, color = Color.White)
