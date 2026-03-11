@@ -44,4 +44,12 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body request: UserUpdateRequest
     ): UserResponse
+
+    //Details d'une activité
+    @GET("api/activites/{id}")
+    suspend fun getActivityDetail(@Path("id") id: Int): Activite
+
+    //Ajouter au panier
+    @POST("api/reservations")
+    suspend fun createReservation(@Body reservation: ReservationCreate): Response<ReservationResponse>
 }
