@@ -68,7 +68,7 @@ fun MainScreen() {
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesBlue,
+                        selectedIconColor = CalanquesBlue, // Passage au Bleu
                         selectedTextColor = CalanquesBlue,
                         unselectedIconColor = CalanquesGrey,
                         unselectedTextColor = CalanquesGrey,
@@ -95,7 +95,7 @@ fun MainScreen() {
             when (selectedTab) {
                 0 -> HomeContent()
                 1 -> PanierScreen()
-                2 -> Text("Compte")
+                2 -> AccountScreen()
                 3 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Page Carte (En construction)", color = CalanquesGrey)
                 }
