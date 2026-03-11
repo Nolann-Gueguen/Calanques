@@ -12,11 +12,14 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ApiService {
-    // Suppression du slash final pour correspondre exactement à l'endpoint de l'API
     @GET("api/activities")
-    suspend fun getActivites(): List<Activite>
+    suspend fun getActivites(): List<Activite> // Pour charger la liste et les noms
 
-    //Ajout de l'endpoint API pour Reservation
+    // On utilise /my pour ne voir que les réservations de l'utilisateur connecté
+    @GET("api/reservations/my")
+    suspend fun getMyReservations(@Header("Authorization") token: String): List<ReservationResponse>
+
+    // Pour l'admin ou la gestion globale
     @GET("api/reservations")
     suspend fun getReservations(): List<ReservationResponse>
 
@@ -29,11 +32,10 @@ interface ApiService {
     @FormUrlEncoded
     @POST("api/auth/login")
     suspend fun login(
-        @Field("username") username: String, // FastAPI utilise 'username' pour recevoir l'e-mail
+        @Field("username") username: String,
         @Field("password") password: String
     ): TokenResponse
 
-    // La route pour récupérer le profil avec le pass VIP
     @GET("api/users/me")
     suspend fun getMe(@Header("Authorization") token: String): UserResponse
 
