@@ -1,5 +1,6 @@
 package com.example.calanques
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,8 +21,9 @@ import com.example.calanques.ui.theme.CalanquesBlue
 import com.example.calanques.ui.theme.CalanquesRed
 import com.example.calanques.ui.theme.CalanquesGrey
 import com.example.calanques.ui.theme.CalanquesLightGrey
+import kotlinx.coroutines.launch
 
-// --- TYPOGRAPHIE ---
+// Définition de la typographie pour éviter les erreurs "en rouge"
 val CustomTypography = Typography(
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -39,37 +41,41 @@ val CustomTypography = Typography(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PanierScreen() {
-    // Utilisation de mutableStateListOf pour permettre la suppression dynamique
-    val activites = remember {
-        mutableStateListOf(
-            ActivitePanier("Belvédère d'en Vau", "12/07/2025 - 15h00", 2, 25),
-            ActivitePanier("Sugiton", "13/07/2025 - 10h00", 1, 15),
-            ActivitePanier("Kayak", "15/07/2025 - 09h00", 3, 20)
-        )
+    // État pour stocker les réservations provenant de la BDD
+    val reservations = remember { mutableStateListOf<ReservationResponse>() }
+    var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+
+    // Chargement des données via l'API Retrofit au démarrage
+    LaunchedEffect(Unit) {
+        try {
+            val response = RetrofitClient.instance.getReservations()
+            reservations.clear()
+            // On ne garde que les réservations "confirmées" (id 1) [cite: 419, 552]
+            reservations.addAll(response.filter { it.status_reservation_id == 1 })
+        } catch (e: Exception) {
+            Log.e("PanierScreen", "Erreur lors de la récupération : ${e.message}")
+        } finally {
+            isLoading = false
+        }
     }
 
-    // Le total se recalcule automatiquement à chaque modification de la liste
-    val total = activites.sumOf { it.montant }
+    // Calcul du montant total basé sur les activités réelles [cite: 546]
+    val totalGlobal = reservations.sumOf { res ->
+        res.activities.sumOf { it.montant }
+    }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "Mon Panier",
-                        style = CustomTypography.titleLarge.copy(color = Color.White)
-                    )
+                    Text("Mon Panier", style = CustomTypography.titleLarge.copy(color = Color.White))
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = CalanquesBlue
-                )
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CalanquesBlue)
             )
         },
         bottomBar = {
-            Surface(
-                tonalElevation = 8.dp,
-                shadowElevation = 15.dp
-            ) {
+            Surface(tonalElevation = 8.dp, shadowElevation = 15.dp) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -78,17 +84,15 @@ fun PanierScreen() {
                     ) {
                         Text("Total à régler", style = CustomTypography.bodyMedium)
                         Text(
-                            "$total €",
+                            "$totalGlobal €",
                             style = CustomTypography.titleLarge.copy(fontSize = 26.sp),
                             color = CalanquesBlue
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
-                        onClick = { /* Action de réservation */ },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
+                        onClick = { /* Action de paiement ou validation finale */ },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = CalanquesBlue)
                     ) {
@@ -105,25 +109,43 @@ fun PanierScreen() {
             }
         }
     ) { paddingValues ->
-        if (activites.isEmpty()) {
-            // Affichage si le panier est vide
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Votre panier est vide", style = CustomTypography.bodyMedium)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(CalanquesLightGrey),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(activites) { activite ->
-                    ItemPanier(
-                        activite = activite,
-                        onDelete = { activites.remove(activite) }
-                    )
+        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = CalanquesBlue)
+            } else if (reservations.isEmpty()) {
+                Text(
+                    "Votre panier est vide",
+                    style = CustomTypography.bodyMedium,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().background(CalanquesLightGrey),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(reservations) { reservation ->
+                        // Affichage de chaque activité contenue dans la réservation [cite: 425, 546]
+                        reservation.activities.forEach { activite ->
+                            ItemPanier(
+                                titre = activite.titre_activite ?: "Activité Calanques",
+                                date = "${activite.date} à ${activite.heure}", // Données BDD [cite: 341, 342]
+                                nbParticipants = activite.nb_participants, // Donnée BDD [cite: 340]
+                                montant = activite.montant,
+                                onDelete = {
+                                    scope.launch {
+                                        try {
+                                            // Suppression réelle dans la BDD
+                                            RetrofitClient.instance.deleteReservation(reservation.id)
+                                            reservations.remove(reservation)
+                                        } catch (e: Exception) {
+                                            Log.e("Panier", "Erreur suppression BDD", e)
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -131,7 +153,13 @@ fun PanierScreen() {
 }
 
 @Composable
-fun ItemPanier(activite: ActivitePanier, onDelete: () -> Unit) {
+fun ItemPanier(
+    titre: String,
+    date: String,
+    nbParticipants: Int,
+    montant: Int,
+    onDelete: () -> Unit
+) {
     ElevatedCard(
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
         shape = RoundedCornerShape(20.dp),
@@ -140,9 +168,8 @@ fun ItemPanier(activite: ActivitePanier, onDelete: () -> Unit) {
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
-                // Titre de l'activité en Bleu Calanques
                 Text(
-                    text = activite.titre,
+                    text = titre,
                     style = CustomTypography.titleLarge,
                     color = CalanquesBlue,
                     modifier = Modifier.fillMaxWidth(0.85f)
@@ -150,7 +177,6 @@ fun ItemPanier(activite: ActivitePanier, onDelete: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Ligne Date
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         painter = painterResource(id = R.drawable.calendar_blank_bold),
@@ -158,12 +184,11 @@ fun ItemPanier(activite: ActivitePanier, onDelete: () -> Unit) {
                         modifier = Modifier.size(16.dp),
                         tint = CalanquesGrey
                     )
-                    Text("  ${activite.date}", style = CustomTypography.bodyMedium)
+                    Text("  $date", style = CustomTypography.bodyMedium)
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Ligne Participants et Prix
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -177,7 +202,7 @@ fun ItemPanier(activite: ActivitePanier, onDelete: () -> Unit) {
                             tint = CalanquesBlue
                         )
                         Text(
-                            "  ${activite.personnes} pers.",
+                            "  $nbParticipants pers.",
                             style = CustomTypography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
@@ -185,19 +210,16 @@ fun ItemPanier(activite: ActivitePanier, onDelete: () -> Unit) {
                         )
                     }
                     Text(
-                        "${activite.montant}€",
+                        "$montant €",
                         style = CustomTypography.titleLarge.copy(fontSize = 22.sp),
                         color = Color.Black
                     )
                 }
             }
 
-            // Bouton de suppression Rouge Calanques
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.trash_bold),
