@@ -47,3 +47,11 @@ data class UserUpdateRequest(
     val ville: String,
     val telephone: String
 )
+
+
+data class ReservationActivity(
+    val activite_id: Int,
+    val date_activite: String,
+    val heure_activite: String,
+    val nb_participants: Int
+)
