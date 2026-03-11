@@ -27,9 +27,10 @@ class EcranActivite : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val resultat = RetrofitClient.instance.getActivites()
+                val listeTriee = resultat.sortedBy { it.nom }
+                afficherLaListe(listeTriee)
 
                 if (resultat.isEmpty()) {
-                    // Correction ici : on précise l'activité
                     Toast.makeText(this@EcranActivite, "La liste est vide sur le serveur", Toast.LENGTH_SHORT).show()
                 }
 
@@ -37,8 +38,6 @@ class EcranActivite : AppCompatActivity() {
 
             } catch (e: Exception) {
                 e.printStackTrace()
-                // Utilise android.util.Log si l'import automatique ne se fait pas
-                android.util.Log.e("API_ERROR", "Erreur : ${e.message}")
                 Toast.makeText(this@EcranActivite, "Erreur : ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
