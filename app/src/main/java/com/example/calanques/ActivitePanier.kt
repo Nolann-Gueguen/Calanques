@@ -1,11 +1,22 @@
 package com.example.calanques
 
-data class ActivitePanier(
-    val titre: String,
+
+data class ReservationActivite(
+    val activity_id: Int,
     val date: String,
-    val personnes: Int,
-    val prixParPersonne: Int
+    val heure: String,
+    val titre_activite: String? = "Activité",
+    val prix_unitaire: Int = 0,
+    val nb_participants: Int
 ) {
-    val montant: Int
-        get() = personnes * prixParPersonne
+    val montant: Int get() = nb_participants * prix_unitaire
 }
+
+
+data class ReservationResponse(
+    val id: Int,
+    val date: String,
+    val commentaire: String?,
+    val status_reservation_id: Int,
+    val activities: List<ReservationActivite>
+)
