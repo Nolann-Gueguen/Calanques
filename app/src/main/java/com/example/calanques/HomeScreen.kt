@@ -21,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.calanques.ui.theme.CalanquesRed
+import com.example.calanques.ui.theme.CalanquesBlue
 import com.example.calanques.ui.theme.CalanquesGrey
 
 // --- 1. STRUCTURE PRINCIPALE (AIGUILLEUR) ---
@@ -38,11 +38,11 @@ fun MainScreen() {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesRed,
-                        selectedTextColor = CalanquesRed,
+                        selectedIconColor = CalanquesBlue, // Passage au Bleu
+                        selectedTextColor = CalanquesBlue,
                         unselectedIconColor = CalanquesGrey,
                         unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesRed.copy(alpha = 0.1f)
+                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
                     )
                 )
                 NavigationBarItem(
@@ -51,11 +51,11 @@ fun MainScreen() {
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesRed,
-                        selectedTextColor = CalanquesRed,
+                        selectedIconColor = CalanquesBlue, // Passage au Bleu
+                        selectedTextColor = CalanquesBlue,
                         unselectedIconColor = CalanquesGrey,
                         unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesRed.copy(alpha = 0.1f)
+                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
                     )
                 )
                 NavigationBarItem(
@@ -64,11 +64,11 @@ fun MainScreen() {
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesRed,
-                        selectedTextColor = CalanquesRed,
+                        selectedIconColor = CalanquesBlue, // Passage au Bleu
+                        selectedTextColor = CalanquesBlue,
                         unselectedIconColor = CalanquesGrey,
                         unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesRed.copy(alpha = 0.1f)
+                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
                     )
                 )
                 NavigationBarItem(
@@ -77,11 +77,11 @@ fun MainScreen() {
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesRed,
-                        selectedTextColor = CalanquesRed,
+                        selectedIconColor = CalanquesBlue, // Passage au Bleu
+                        selectedTextColor = CalanquesBlue,
                         unselectedIconColor = CalanquesGrey,
                         unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesRed.copy(alpha = 0.1f)
+                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
                     )
                 )
             }
@@ -90,7 +90,6 @@ fun MainScreen() {
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
                 0 -> HomeContent()
-                // CORRECTION : On affiche la vraie page Panier ici
                 1 -> PanierScreen()
                 2 -> AccountScreen()
                 3 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,13 +112,12 @@ fun HomeContent() {
         isLoading = true
         errorMessage = null
         try {
-            // Appel à l'API via Retrofit
             val resultat = RetrofitClient.instance.getActivites()
             listeActivites.clear()
             listeActivites.addAll(resultat)
         } catch (e: Exception) {
             Log.e("API_ERROR", "Erreur : ${e.message}")
-            errorMessage = "Le serveur ne répond pas.\nVérifiez que WampServer est lancé sur le port 80."
+            errorMessage = "Le serveur ne répond pas.\nVérifiez votre connexion."
         } finally {
             isLoading = false
         }
@@ -129,7 +127,6 @@ fun HomeContent() {
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Logo officiel du Parc National des Calanques
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Logo du Parc National des Calanques",
@@ -142,7 +139,7 @@ fun HomeContent() {
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = CalanquesRed)
+                CircularProgressIndicator(color = CalanquesBlue) // Loader Bleu
             }
         } else if (errorMessage != null) {
             Column(
@@ -159,13 +156,12 @@ fun HomeContent() {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = { refreshTrigger++ },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF4B07D))
+                    colors = ButtonDefaults.buttonColors(containerColor = CalanquesBlue) // Bouton Bleu
                 ) {
-                    Text("Réessayer", color = Color.Black)
+                    Text("Réessayer", color = Color.White)
                 }
             }
         } else {
-            // LazyColumn pour afficher les activités de la BDD
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(listeActivites) { activite ->
                     ActiviteRow(activite)
@@ -184,7 +180,7 @@ fun ActiviteRow(activite: Activite) {
             .padding(horizontal = 24.dp, vertical = 12.dp)
     ) {
         Text(
-            text = activite.nom, // Donnée issue de la table 'activites'
+            text = activite.nom,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
@@ -194,13 +190,13 @@ fun ActiviteRow(activite: Activite) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "${activite.tarif} €", // Donnée issue de la table 'activites'
+                text = "${activite.tarif} €",
                 fontSize = 14.sp,
-                color = CalanquesRed,
+                color = CalanquesBlue, // Prix en Bleu
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = activite.duree, // Donnée issue de la table 'activites'
+                text = activite.duree,
                 fontSize = 14.sp,
                 color = Color.Gray
             )
