@@ -90,9 +90,8 @@ fun MainScreen() {
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
                 0 -> HomeContent()
-                1 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Page Panier (En construction)", color = CalanquesGrey)
-                }
+                // CORRECTION : On affiche la vraie page Panier ici
+                1 -> PanierScreen()
                 2 -> AccountScreen()
                 3 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Page Carte (En construction)", color = CalanquesGrey)
@@ -114,7 +113,7 @@ fun HomeContent() {
         isLoading = true
         errorMessage = null
         try {
-            // Appel à l'API via Retrofit (BASE_URL http://10.0.2.2/)
+            // Appel à l'API via Retrofit
             val resultat = RetrofitClient.instance.getActivites()
             listeActivites.clear()
             listeActivites.addAll(resultat)
@@ -130,7 +129,7 @@ fun HomeContent() {
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Logo officiel du Parc [cite: 244]
+        // Logo officiel du Parc National des Calanques
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Logo du Parc National des Calanques",
@@ -166,7 +165,7 @@ fun HomeContent() {
                 }
             }
         } else {
-            // Équivalent moderne du RecyclerView [cite: 45, 56]
+            // LazyColumn pour afficher les activités de la BDD
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(listeActivites) { activite ->
                     ActiviteRow(activite)
@@ -185,7 +184,7 @@ fun ActiviteRow(activite: Activite) {
             .padding(horizontal = 24.dp, vertical = 12.dp)
     ) {
         Text(
-            text = activite.nom, // ex: "Excursion en bateau" [cite: 115]
+            text = activite.nom, // Donnée issue de la table 'activites'
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
@@ -195,13 +194,13 @@ fun ActiviteRow(activite: Activite) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "${activite.tarif} €", // ex: "50.00 €" [cite: 117]
+                text = "${activite.tarif} €", // Donnée issue de la table 'activites'
                 fontSize = 14.sp,
                 color = CalanquesRed,
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = activite.duree, // ex: "02:00" [cite: 117]
+                text = activite.duree, // Donnée issue de la table 'activites'
                 fontSize = 14.sp,
                 color = Color.Gray
             )
