@@ -34,16 +34,10 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 
+// --- 1. CARTE ---
 @Composable
 fun MapScreen() {
-
-    fun formaterHeure(heure: String): String {
-        return heure.replace(":", "h")
-    }
-
     val context = LocalContext.current
-
-    // Configuration OSM
     LaunchedEffect(Unit) {
         Configuration.getInstance().userAgentValue = context.packageName
     }
@@ -54,8 +48,6 @@ fun MapScreen() {
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
-
-                // Centrage sur Marseille / Calanques
                 val startPoint = GeoPoint(43.2140, 5.4480)
                 controller.setZoom(12.0)
                 controller.setCenter(startPoint)
@@ -63,10 +55,12 @@ fun MapScreen() {
         }
     )
 }
-// --- 1. STRUCTURE PRINCIPALE (AIGUILLEUR) ---
+
+// --- 2. STRUCTURE PRINCIPALE ---
 @Composable
 fun MainScreen() {
     var selectedTab by remember { mutableStateOf(0) }
+    var selectedActivite by remember { mutableStateOf<Activite?>(null) }
 
     Scaffold(
         bottomBar = {
@@ -75,205 +69,127 @@ fun MainScreen() {
                     icon = { Icon(Icons.Default.List, contentDescription = "Activités") },
                     label = { Text("Activités") },
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesBlue,
-                        selectedTextColor = CalanquesBlue,
-                        unselectedIconColor = CalanquesGrey,
-                        unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
-                    )
+                    onClick = { selectedTab = 0; selectedActivite = null },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Panier") },
                     label = { Text("Panier") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesBlue,
-                        selectedTextColor = CalanquesBlue,
-                        unselectedIconColor = CalanquesGrey,
-                        unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
-                    )
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Compte") },
                     label = { Text("Compte") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesBlue, // Passage au Bleu
-                        selectedTextColor = CalanquesBlue,
-                        unselectedIconColor = CalanquesGrey,
-                        unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
-                    )
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
                     label = { Text("Carte") },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CalanquesBlue,
-                        selectedTextColor = CalanquesBlue,
-                        unselectedIconColor = CalanquesGrey,
-                        unselectedTextColor = CalanquesGrey,
-                        indicatorColor = CalanquesBlue.copy(alpha = 0.1f)
-                    )
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
             }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> HomeContent()
+                0 -> {
+                    if (selectedActivite == null) {
+                        HomeContent(onActiviteClick = { a -> selectedActivite = a })
+                    } else {
+                        DetailActiviteScreen(activite = selectedActivite!!, onBack = { selectedActivite = null })
+                    }
+                }
                 1 -> PanierScreen()
                 2 -> AccountScreen()
                 3 -> MapScreen()
-                }
             }
         }
     }
+}
 
-
-// --- 2. CONTENU ACCUEIL ---
+// --- 3. CONTENU ACCUEIL ---
 @Composable
-fun HomeContent() {
+fun HomeContent(onActiviteClick: (Activite) -> Unit) {
     val listeActivites = remember { mutableStateListOf<Activite>() }
     var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var refreshTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(refreshTrigger) {
-        isLoading = true
-        errorMessage = null
+    LaunchedEffect(Unit) {
         try {
             val resultat = RetrofitClient.instance.getActivites()
             listeActivites.clear()
             listeActivites.addAll(resultat)
         } catch (e: Exception) {
             Log.e("API_ERROR", "Erreur : ${e.message}")
-            errorMessage = "Le serveur ne répond pas.\nVérifiez que WampServer est lancé."
         } finally {
             isLoading = false
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CalanquesLightGrey), // Fond gris clair comme le panier
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "Logo",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .padding(vertical = 16.dp),
-            contentScale = ContentScale.Fit
-        )
+    Column(modifier = Modifier.fillMaxSize().background(CalanquesLightGrey), horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(painter = painterResource(id = R.drawable.logo), contentDescription = "Logo", modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 16.dp), contentScale = ContentScale.Fit)
 
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = CalanquesBlue)
-            }
-        } else if (errorMessage != null) {
-            // ... (Code d'erreur inchangé)
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = CalanquesBlue) }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(listeActivites) { activite ->
-                    ActiviteCard(activite)
+                    ActiviteCard(activite = activite, onClick = { onActiviteClick(activite) })
                 }
             }
         }
     }
 }
 
-// --- 3. CARTE D'ACTIVITÉ (DESIGN AVEC IMAGE) ---
+// --- 4. CARTE D'ACTIVITÉ ---
 @Composable
-fun ActiviteCard(activite: Activite) {
-    // Construction de l'URL de l'image
+fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
     val baseUrl = "http://webngo.sio.bts:8003/"
     val fullImageUrl = baseUrl + activite.image_url.removePrefix("/")
 
     ElevatedCard(
+        onClick = onClick,
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(20.dp), // Coins arrondis comme dans PanierScreen
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
     ) {
         Column {
-            // AFFICHAGE DE L'IMAGE VIA COIL
-            AsyncImage(
-                model = fullImageUrl,
-                contentDescription = activite.nom,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(android.R.drawable.ic_menu_gallery),
-                error = painterResource(android.R.drawable.ic_menu_report_image)
-            )
-
+            AsyncImage(model = fullImageUrl, contentDescription = activite.nom, modifier = Modifier.fillMaxWidth().height(150.dp), contentScale = ContentScale.Crop)
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = activite.nom,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Description (si elle existe dans ton objet Activite)
-                Text(
-                    text = activite.description,
-                    fontSize = 13.sp,
-                    color = Color.Gray,
-                    maxLines = 2
-                )
-
+                Text(text = activite.nom, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(text = activite.description, fontSize = 13.sp, color = Color.Gray, maxLines = 2)
                 Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${activite.tarif} €",
-                        fontSize = 18.sp,
-                        color = CalanquesBlue,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-
-                    Surface(
-                        color = Color.LightGray.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "${activite.tarif} €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
+                    Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) {
                         Text(
-                            text = activite.duree.split(":").let { parts ->
-                                if (parts.size >= 2) {
-                                    "${parts[0].padStart(2, '0')}h${parts[1].padStart(2, '0')}"
-                                } else {
-                                    activite.duree
-                                }
-                            },
+                            text = activite.duree.split(":").let { if(it.size >= 2) "${it[0]}h${it[1]}" else activite.duree },
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
+                            fontSize = 12.sp
                         )
                     }
                 }
             }
         }
+    }
+}
+
+// --- 5. ÉCRAN DÉTAIL ---
+@Composable
+fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().background(Color.White).padding(16.dp)) {
+        Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = CalanquesBlue)) {
+            Text("Retour")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = activite.nom, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = activite.description)
     }
 }
