@@ -18,16 +18,46 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.example.calanques.ui.theme.CalanquesBlue
 import com.example.calanques.ui.theme.CalanquesGrey
 import com.example.calanques.ui.theme.CalanquesLightGrey
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
 
+@Composable
+fun MapScreen() {
+    val context = LocalContext.current
+
+    // Configuration OSM
+    LaunchedEffect(Unit) {
+        Configuration.getInstance().userAgentValue = context.packageName
+    }
+
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
+            MapView(ctx).apply {
+                setTileSource(TileSourceFactory.MAPNIK)
+                setMultiTouchControls(true)
+
+                // Centrage sur Marseille / Calanques
+                val startPoint = GeoPoint(43.2140, 5.4480)
+                controller.setZoom(12.0)
+                controller.setCenter(startPoint)
+            }
+        }
+    )
+}
 // --- 1. STRUCTURE PRINCIPALE (AIGUILLEUR) ---
 @Composable
 fun MainScreen() {
@@ -96,13 +126,12 @@ fun MainScreen() {
                 0 -> HomeContent()
                 1 -> PanierScreen()
                 2 -> AccountScreen()
-                3 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Page Carte (En construction)", color = CalanquesGrey)
+                3 -> MapScreen()
                 }
             }
         }
     }
-}
+
 
 // --- 2. CONTENU ACCUEIL ---
 @Composable
