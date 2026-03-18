@@ -36,6 +36,11 @@ import org.osmdroid.views.MapView
 
 @Composable
 fun MapScreen() {
+
+    fun formaterHeure(heure: String): String {
+        return heure.replace(":", "h")
+    }
+
     val context = LocalContext.current
 
     // Configuration OSM
@@ -213,7 +218,7 @@ fun ActiviteCard(activite: Activite) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp),
-                contentScale = ContentScale.Crop, // L'image remplit bien l'espace
+                contentScale = ContentScale.Crop,
                 placeholder = painterResource(android.R.drawable.ic_menu_gallery),
                 error = painterResource(android.R.drawable.ic_menu_report_image)
             )
@@ -255,7 +260,13 @@ fun ActiviteCard(activite: Activite) {
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = activite.duree,
+                            text = activite.duree.split(":").let { parts ->
+                                if (parts.size >= 2) {
+                                    "${parts[0].padStart(2, '0')}h${parts[1].padStart(2, '0')}"
+                                } else {
+                                    activite.duree
+                                }
+                            },
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             fontSize = 12.sp,
                             color = Color.DarkGray
