@@ -24,13 +24,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.example.calanques.ui.theme.CalanquesBlue
-import com.example.calanques.ui.theme.CalanquesGrey
 import com.example.calanques.ui.theme.CalanquesLightGrey
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -62,8 +60,12 @@ fun MapScreen() {
 // --- 2. STRUCTURE PRINCIPALE ---
 @Composable
 fun MainScreen() {
+    var selectedResDetail by remember { mutableStateOf<ReservationResponse?>(null) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedActivite by remember { mutableStateOf<Activite?>(null) }
+
+    // Trigger pour forcer le rafraîchissement de l'AccountScreen après annulation
+    var refreshTrigger by remember { mutableIntStateOf(0) }
 
     Scaffold(
         bottomBar = {
@@ -72,14 +74,14 @@ fun MainScreen() {
                     icon = { Icon(Icons.Default.List, contentDescription = "Activités") },
                     label = { Text("Activités") },
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0; selectedActivite = null },
+                    onClick = { selectedTab = 0; selectedActivite = null; selectedResDetail = null },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Panier") },
                     label = { Text("Panier") },
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    onClick = { selectedTab = 1; selectedResDetail = null },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
@@ -93,7 +95,7 @@ fun MainScreen() {
                     icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
                     label = { Text("Carte") },
                     selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
+                    onClick = { selectedTab = 3; selectedResDetail = null },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
             }
@@ -109,7 +111,24 @@ fun MainScreen() {
                     }
                 }
                 1 -> PanierScreen()
-                2 -> AccountScreen()
+                2 -> {
+                    if (selectedResDetail == null) {
+                        // Utilisation de la key pour forcer le rechargement du profil si on a annulé une résa
+                        key(refreshTrigger) {
+                            AccountScreen(onReservationClick = { res -> selectedResDetail = res })
+                        }
+                    } else {
+                        // FIX: Ajout du paramètre onRefresh manquant
+                        ReservationDetailScreen(
+                            reservation = selectedResDetail!!,
+                            onBack = { selectedResDetail = null },
+                            onRefresh = {
+                                refreshTrigger++ // On demande le rafraîchissement
+                                selectedResDetail = null // On revient à la liste
+                            }
+                        )
+                    }
+                }
                 3 -> MapScreen()
             }
         }
@@ -135,10 +154,17 @@ fun HomeContent(onActiviteClick: (Activite) -> Unit) {
     }
 
     Column(modifier = Modifier.fillMaxSize().background(CalanquesLightGrey), horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painter = painterResource(id = R.drawable.logo), contentDescription = "Logo", modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 16.dp), contentScale = ContentScale.Fit)
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Logo",
+            modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 16.dp),
+            contentScale = ContentScale.Fit
+        )
 
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = CalanquesBlue) }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CalanquesBlue)
+            }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(listeActivites) { activite ->
@@ -170,7 +196,6 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     val tarifTxt = if (activite.tarif % 1 == 0.0) activite.tarif.toInt() else activite.tarif
-
                     Text(text = "$tarifTxt €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
 
                     Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) {
@@ -445,5 +470,3 @@ fun SelectionButton(text: String, icon: Int, enabled: Boolean = true, onClick: (
         Icon(painterResource(id = icon), null, tint = if (enabled) CalanquesBlue else Color.LightGray)
     }
 }
-
-
