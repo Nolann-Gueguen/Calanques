@@ -1,12 +1,15 @@
 package com.example.calanques
 
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
@@ -166,7 +169,10 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
                 Text(text = activite.description, fontSize = 13.sp, color = Color.Gray, maxLines = 2)
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "${activite.tarif} €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
+                    val tarifTxt = if (activite.tarif % 1 == 0.0) activite.tarif.toInt() else activite.tarif
+
+                    Text(text = "$tarifTxt €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
+
                     Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) {
                         Text(
                             text = activite.duree.split(":").let { if(it.size >= 2) "${it[0]}h${it[1]}" else activite.duree },
@@ -181,15 +187,164 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
 }
 
 // --- 5. ÉCRAN DÉTAIL ---
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().background(Color.White).padding(16.dp)) {
-        Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = CalanquesBlue)) {
-            Text("Retour")
+    val scrollState = rememberScrollState()
+
+    // --- ÉTATS POUR LE RESPECT DU CAHIER DES CHARGES ---
+    var nbParticipants by remember { mutableIntStateOf(1) }
+    var selectedDate by remember { mutableStateOf("") } // Date vide au départ
+    var selectedHeure by remember { mutableStateOf("") } // Heure vide au départ
+
+    // Simulation du quota (ex: 20 places max venant de l'API)
+    val quotaMax = 20
+    val placesRestantes = quotaMax - nbParticipants
+
+    // Calcul du prix total (Tarif unité * nb participants)
+    val prixTotal = activite.tarif * nbParticipants
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(activite.nom, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(painterResource(id = R.drawable.arrow_left), contentDescription = "Retour")
+                    }
+                }
+            )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = activite.nom, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = activite.description)
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+        ) {
+            // 1. GALERIE / IMAGE
+            AsyncImage(
+                model = "http://webngo.sio.bts:8004/${activite.image_url}",
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .padding(16.dp)
+                    .background(Color.LightGray, RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                // 2. NOM ET DURÉE
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(activite.nom, modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Icon(painterResource(id = R.drawable.clock_bold), null, modifier = Modifier.size(18.dp))
+                    Text(" ${activite.duree}", fontWeight = FontWeight.Medium)
+                }
+
+                // 3. DESCRIPTION ET RÈGLES
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(activite.description, fontSize = 14.sp, color = Color.DarkGray)
+                Text("Règles : RDV 30 min avant le départ sur le quai.", fontSize = 12.sp, color = Color.Gray)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 4. CALENDRIER INTERACTIF (Sélection Date)
+                Text("1. Choisir une date", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                SelectionButton(
+                    text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate,
+                    icon = R.drawable.calendar_blank_bold
+                ) {
+                    // Ici on simule la sélection, tu pourrais ouvrir un DatePickerDialog
+                    selectedDate = "15 Juillet 2025"
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 5. SÉLECTION HEURE (Activée seulement si date choisie)
+                Text("2. Choisir l'horaire", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                SelectionButton(
+                    text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure,
+                    icon = R.drawable.clock_bold,
+                    enabled = selectedDate.isNotEmpty()
+                ) {
+                    selectedHeure = "10:00"
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 6. INFOS QUOTAS ET PRIX TOTAL
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Prix Total Actualisé
+                    Column {
+                        Text("Prix Total", fontSize = 12.sp, color = Color.Gray)
+                        val prixTxt = if (prixTotal % 1 == 0.0) prixTotal.toInt() else prixTotal
+                        Text("$prixTxt €", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CalanquesBlue)
+                    }
+
+                    // Gestion Participants & Quotas
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Places restantes : $placesRestantes", fontSize = 12.sp, color = if(placesRestantes < 5) Color.Red else Color.Gray)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { if (nbParticipants > 1) nbParticipants-- }) {
+                                Icon(painterResource(id = R.drawable.minus_circle), null, tint = CalanquesBlue)
+                            }
+                            Surface(border = BorderStroke(1.dp, Color.LightGray), shape = RoundedCornerShape(4.dp)) {
+                                Text("$nbParticipants", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                            }
+                            IconButton(onClick = { if (nbParticipants < quotaMax) nbParticipants++ }) {
+                                Icon(painterResource(id = R.drawable.plus_circle), null, tint = CalanquesBlue)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // 7. BOUTON AJOUTER AU PANIER (Activé si date + heure choisies)
+                val isReady = selectedDate.isNotEmpty() && selectedHeure.isNotEmpty()
+
+                Button(
+                    onClick = {
+                        // Logique d'ajout au panier virtuel ici
+                        onBack()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    enabled = isReady,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isReady) CalanquesBlue else Color.LightGray
+                    )
+                ) {
+                    Icon(painterResource(id = R.drawable.basket_bold), null)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Ajouter au panier", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+        }
     }
 }
+
+@Composable
+fun SelectionButton(text: String, icon: Int, enabled: Boolean = true, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, if (enabled) Color.LightGray else Color(0xFFEEEEEE)),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
+    ) {
+        Text(text, color = if (enabled) Color.Black else Color.LightGray)
+        Spacer(Modifier.weight(1f))
+        Icon(painterResource(id = icon), null, tint = if (enabled) CalanquesBlue else Color.LightGray)
+    }
+}
+
+
