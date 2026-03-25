@@ -56,6 +56,13 @@ interface ApiService {
     @GET("api/activites/{id}")
     suspend fun getActivityDetail(@Path("id") id: Int): Activite
 
+    @PUT("api/reservations/{id}/status")
+    suspend fun updateReservationStatus(
+        @Header("Authorization") token: String,
+        @Path("id") reservationId: Int,
+        @Body statusRequest: StatusUpdateRequest
+    ): ApiResponse
+
     //Ajouter au panier
     @POST("api/reservations")
     suspend fun createReservation(@Body reservation: ReservationCreate): Response<ReservationResponse>

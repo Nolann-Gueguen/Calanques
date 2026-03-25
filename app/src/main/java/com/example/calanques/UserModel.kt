@@ -106,3 +106,5 @@ data class ReservationCreate(
     val status_reservation_id: Int = 1,
     val activities: List<ReservationActiviteCreate>
 )
+
+data class StatusUpdateRequest(val statut_reservation_id: Int)

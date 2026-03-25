@@ -17,8 +17,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,13 +24,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import com.example.calanques.ui.theme.CalanquesBlue
-import com.example.calanques.ui.theme.CalanquesGrey
 import com.example.calanques.ui.theme.CalanquesLightGrey
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -67,6 +63,9 @@ fun MainScreen() {
     var selectedResDetail by remember { mutableStateOf<ReservationResponse?>(null) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedActivite by remember { mutableStateOf<Activite?>(null) }
+
+    // Trigger pour forcer le rafraîchissement de l'AccountScreen après annulation
+    var refreshTrigger by remember { mutableIntStateOf(0) }
 
     Scaffold(
         bottomBar = {
@@ -113,13 +112,20 @@ fun MainScreen() {
                 }
                 1 -> PanierScreen()
                 2 -> {
-                    // Logique de navigation interne pour le profil : Liste ou Détails
                     if (selectedResDetail == null) {
-                        AccountScreen(onReservationClick = { res -> selectedResDetail = res })
+                        // Utilisation de la key pour forcer le rechargement du profil si on a annulé une résa
+                        key(refreshTrigger) {
+                            AccountScreen(onReservationClick = { res -> selectedResDetail = res })
+                        }
                     } else {
+                        // FIX: Ajout du paramètre onRefresh manquant
                         ReservationDetailScreen(
                             reservation = selectedResDetail!!,
-                            onBack = { selectedResDetail = null }
+                            onBack = { selectedResDetail = null },
+                            onRefresh = {
+                                refreshTrigger++ // On demande le rafraîchissement
+                                selectedResDetail = null // On revient à la liste
+                            }
                         )
                     }
                 }
@@ -148,10 +154,17 @@ fun HomeContent(onActiviteClick: (Activite) -> Unit) {
     }
 
     Column(modifier = Modifier.fillMaxSize().background(CalanquesLightGrey), horizontalAlignment = Alignment.CenterHorizontally) {
-        Image(painter = painterResource(id = R.drawable.logo), contentDescription = "Logo", modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 16.dp), contentScale = ContentScale.Fit)
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Logo",
+            modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 16.dp),
+            contentScale = ContentScale.Fit
+        )
 
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = CalanquesBlue) }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CalanquesBlue)
+            }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(listeActivites) { activite ->
@@ -183,7 +196,6 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     val tarifTxt = if (activite.tarif % 1 == 0.0) activite.tarif.toInt() else activite.tarif
-
                     Text(text = "$tarifTxt €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
 
                     Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) {
@@ -204,7 +216,6 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
 @Composable
 fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
     val scrollState = rememberScrollState()
-
     var nbParticipants by remember { mutableIntStateOf(1) }
     var selectedDate by remember { mutableStateOf("") }
     var selectedHeure by remember { mutableStateOf("") }
@@ -226,19 +237,12 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(scrollState)
+            modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(scrollState)
         ) {
             AsyncImage(
                 model = "http://webngo.sio.bts:8004/${activite.image_url}",
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(16.dp)
-                    .background(Color.LightGray, RoundedCornerShape(12.dp)),
+                modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp).background(Color.LightGray, RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
 
@@ -256,31 +260,20 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text("1. Choisir une date", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                SelectionButton(
-                    text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate,
-                    icon = R.drawable.calendar_blank_bold
-                ) {
+                SelectionButton(text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate, icon = R.drawable.calendar_blank_bold) {
                     selectedDate = "15 Juillet 2025"
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text("2. Choisir l'horaire", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                SelectionButton(
-                    text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure,
-                    icon = R.drawable.clock_bold,
-                    enabled = selectedDate.isNotEmpty()
-                ) {
+                SelectionButton(text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure, icon = R.drawable.clock_bold, enabled = selectedDate.isNotEmpty()) {
                     selectedHeure = "10:00"
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
                         Text("Prix Total", fontSize = 12.sp, color = Color.Gray)
                         val prixTxt = if (prixTotal % 1 == 0.0) prixTotal.toInt() else prixTotal
@@ -306,21 +299,17 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
                 Spacer(modifier = Modifier.height(32.dp))
 
                 val isReady = selectedDate.isNotEmpty() && selectedHeure.isNotEmpty()
-
                 Button(
                     onClick = { onBack() },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     enabled = isReady,
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isReady) CalanquesBlue else Color.LightGray
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = if (isReady) CalanquesBlue else Color.LightGray)
                 ) {
                     Icon(painterResource(id = R.drawable.basket_bold), null)
                     Spacer(Modifier.width(12.dp))
                     Text("Ajouter au panier", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
-
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
