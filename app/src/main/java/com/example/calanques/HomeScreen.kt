@@ -212,13 +212,20 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
 }
 
 // --- 5. ÉCRAN DÉTAIL ---
+// --- 5. ÉCRAN DÉTAIL ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
     val scrollState = rememberScrollState()
+
+    // --- ÉTATS ---
     var nbParticipants by remember { mutableIntStateOf(1) }
     var selectedDate by remember { mutableStateOf("") }
     var selectedHeure by remember { mutableStateOf("") }
+
+    // --- ÉTATS POUR AFFICHER LES NOUVEAUX CALENDRIERS MODERNES ---
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val quotaMax = 20
     val placesRestantes = quotaMax - nbParticipants
@@ -236,81 +243,213 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(scrollState)
-        ) {
-            AsyncImage(
-                model = "http://webngo.sio.bts:8004/${activite.image_url}",
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp).background(Color.LightGray, RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+            ) {
+                // 1. GALERIE / IMAGE
+                AsyncImage(
+                    model = "http://webngo.sio.bts:8004/${activite.image_url}",
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .padding(16.dp)
+                        .background(Color.LightGray, RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
 
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(activite.nom, modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Icon(painterResource(id = R.drawable.clock_bold), null, modifier = Modifier.size(18.dp))
-                    Text(" ${activite.duree}", fontWeight = FontWeight.Medium)
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(activite.description, fontSize = 14.sp, color = Color.DarkGray)
-                Text("Règles : RDV 30 min avant le départ sur le quai.", fontSize = 12.sp, color = Color.Gray)
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text("1. Choisir une date", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                SelectionButton(text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate, icon = R.drawable.calendar_blank_bold) {
-                    selectedDate = "15 Juillet 2025"
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text("2. Choisir l'horaire", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                SelectionButton(text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure, icon = R.drawable.clock_bold, enabled = selectedDate.isNotEmpty()) {
-                    selectedHeure = "10:00"
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Prix Total", fontSize = 12.sp, color = Color.Gray)
-                        val prixTxt = if (prixTotal % 1 == 0.0) prixTotal.toInt() else prixTotal
-                        Text("$prixTxt €", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CalanquesBlue)
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    // 2. NOM ET DURÉE
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(activite.nom, modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Icon(painterResource(id = R.drawable.clock_bold), null, modifier = Modifier.size(18.dp))
+                        Text(" ${activite.duree}", fontWeight = FontWeight.Medium)
                     }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Places restantes : $placesRestantes", fontSize = 12.sp, color = if(placesRestantes < 5) Color.Red else Color.Gray)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { if (nbParticipants > 1) nbParticipants-- }) {
-                                Icon(painterResource(id = R.drawable.minus_circle), null, tint = CalanquesBlue)
-                            }
-                            Surface(border = BorderStroke(1.dp, Color.LightGray), shape = RoundedCornerShape(4.dp)) {
-                                Text("$nbParticipants", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-                            }
-                            IconButton(onClick = { if (nbParticipants < quotaMax) nbParticipants++ }) {
-                                Icon(painterResource(id = R.drawable.plus_circle), null, tint = CalanquesBlue)
+                    // 3. DESCRIPTION ET RÈGLES
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(activite.description, fontSize = 14.sp, color = Color.DarkGray)
+                    Text("Règles : RDV 30 min avant le départ sur le quai.", fontSize = 12.sp, color = Color.Gray)
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // ==========================================
+                    // 4. CALENDRIER INTERACTIF
+                    // ==========================================
+                    Text("1. Choisir une date", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    SelectionButton(
+                        text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate,
+                        icon = R.drawable.calendar_blank_bold
+                    ) {
+                        // On déclenche l'affichage du DatePicker moderne
+                        showDatePicker = true
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ==========================================
+                    // 5. SÉLECTION HEURE
+                    // ==========================================
+                    Text("2. Choisir l'horaire", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    SelectionButton(
+                        text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure,
+                        icon = R.drawable.clock_bold,
+                        enabled = selectedDate.isNotEmpty()
+                    ) {
+                        // On déclenche l'affichage du TimePicker moderne
+                        showTimePicker = true
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 6. INFOS QUOTAS ET PRIX TOTAL
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Prix Total", fontSize = 12.sp, color = Color.Gray)
+                            val prixTxt = if (prixTotal % 1 == 0.0) prixTotal.toInt() else prixTotal
+                            Text("$prixTxt €", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CalanquesBlue)
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Places restantes : $placesRestantes", fontSize = 12.sp, color = if(placesRestantes < 5) Color.Red else Color.Gray)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { if (nbParticipants > 1) nbParticipants-- }) {
+                                    Icon(painterResource(id = R.drawable.minus_circle), null, tint = CalanquesBlue)
+                                }
+                                Surface(border = BorderStroke(1.dp, Color.LightGray), shape = RoundedCornerShape(4.dp)) {
+                                    Text("$nbParticipants", modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+                                }
+                                IconButton(onClick = { if (nbParticipants < quotaMax) nbParticipants++ }) {
+                                    Icon(painterResource(id = R.drawable.plus_circle), null, tint = CalanquesBlue)
+                                }
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // 7. BOUTON AJOUTER AU PANIER
+                    val isReady = selectedDate.isNotEmpty() && selectedHeure.isNotEmpty()
+                    Button(
+                        onClick = { onBack() },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        enabled = isReady,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isReady) CalanquesBlue else Color.LightGray)
+                    ) {
+                        Icon(painterResource(id = R.drawable.basket_bold), null)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Ajouter au panier", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
+            }
 
-                Spacer(modifier = Modifier.height(32.dp))
+            // ========================================================
+            // COMPOSANTS DE DIALOGUES MODERNES (MATERIAL 3)
+            // ========================================================
 
-                val isReady = selectedDate.isNotEmpty() && selectedHeure.isNotEmpty()
-                Button(
-                    onClick = { onBack() },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    enabled = isReady,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (isReady) CalanquesBlue else Color.LightGray)
+            // --- DATE PICKER MODERNE ---
+            if (showDatePicker) {
+                val datePickerState = rememberDatePickerState(
+                    selectableDates = object : SelectableDates {
+                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                            // Désactiver les dates passées
+                            return utcTimeMillis >= System.currentTimeMillis() - 86400000
+                        }
+                    }
+                )
+
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                val cal = java.util.Calendar.getInstance()
+                                cal.timeInMillis = millis
+                                val formatter = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.FRENCH)
+                                val formatted = formatter.format(cal.time)
+                                val parts = formatted.split(" ")
+                                selectedDate = if (parts.size == 3) {
+                                    "${parts[0]} ${parts[1].replaceFirstChar { it.uppercase() }} ${parts[2]}"
+                                } else { formatted }
+
+                                selectedHeure = "" // On réinitialise l'heure
+                            }
+                            showDatePicker = false
+                        }) {
+                            Text("Confirmer", color = CalanquesBlue, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Annuler", color = Color.Gray)
+                        }
+                    },
+                    colors = DatePickerDefaults.colors(containerColor = Color.White)
                 ) {
-                    Icon(painterResource(id = R.drawable.basket_bold), null)
-                    Spacer(Modifier.width(12.dp))
-                    Text("Ajouter au panier", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    DatePicker(
+                        state = datePickerState,
+                        colors = DatePickerDefaults.colors(
+                            // Application de TA couleur CalanquesBlue
+                            selectedDayContainerColor = CalanquesBlue,
+                            selectedDayContentColor = Color.White,
+                            todayDateBorderColor = CalanquesBlue,
+                            todayContentColor = CalanquesBlue,
+                            dayContentColor = Color.Black
+                        )
+                    )
                 }
-                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            // --- TIME PICKER MODERNE ---
+            if (showTimePicker) {
+                val timePickerState = rememberTimePickerState(initialHour = 10, initialMinute = 0, is24Hour = true)
+
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            selectedHeure = String.format(java.util.Locale.FRENCH, "%02dh%02d", timePickerState.hour, timePickerState.minute)
+                            showTimePicker = false
+                        }) {
+                            Text("Confirmer", color = CalanquesBlue, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("Annuler", color = Color.Gray)
+                        }
+                    },
+                    text = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                            TimePicker(
+                                state = timePickerState,
+                                colors = TimePickerDefaults.colors(
+                                    // Application de TA couleur CalanquesBlue sur l'horloge
+                                    clockDialColor = CalanquesLightGrey,
+                                    selectorColor = CalanquesBlue,
+                                    containerColor = Color.White,
+                                    timeSelectorSelectedContainerColor = CalanquesBlue.copy(alpha = 0.2f),
+                                    timeSelectorSelectedContentColor = CalanquesBlue,
+                                    periodSelectorSelectedContainerColor = CalanquesBlue.copy(alpha = 0.2f),
+                                    periodSelectorSelectedContentColor = CalanquesBlue
+                                )
+                            )
+                        }
+                    },
+                    containerColor = Color.White,
+                    shape = RoundedCornerShape(24.dp)
+                )
             }
         }
     }
