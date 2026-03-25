@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,6 +64,7 @@ fun MapScreen() {
 // --- 2. STRUCTURE PRINCIPALE ---
 @Composable
 fun MainScreen() {
+    var selectedResDetail by remember { mutableStateOf<ReservationResponse?>(null) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedActivite by remember { mutableStateOf<Activite?>(null) }
 
@@ -72,14 +75,14 @@ fun MainScreen() {
                     icon = { Icon(Icons.Default.List, contentDescription = "Activités") },
                     label = { Text("Activités") },
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0; selectedActivite = null },
+                    onClick = { selectedTab = 0; selectedActivite = null; selectedResDetail = null },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Panier") },
                     label = { Text("Panier") },
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
+                    onClick = { selectedTab = 1; selectedResDetail = null },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
                 NavigationBarItem(
@@ -93,7 +96,7 @@ fun MainScreen() {
                     icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
                     label = { Text("Carte") },
                     selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
+                    onClick = { selectedTab = 3; selectedResDetail = null },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
                 )
             }
@@ -109,7 +112,17 @@ fun MainScreen() {
                     }
                 }
                 1 -> PanierScreen()
-                2 -> AccountScreen()
+                2 -> {
+                    // Logique de navigation interne pour le profil : Liste ou Détails
+                    if (selectedResDetail == null) {
+                        AccountScreen(onReservationClick = { res -> selectedResDetail = res })
+                    } else {
+                        ReservationDetailScreen(
+                            reservation = selectedResDetail!!,
+                            onBack = { selectedResDetail = null }
+                        )
+                    }
+                }
                 3 -> MapScreen()
             }
         }
@@ -192,16 +205,12 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
 fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
     val scrollState = rememberScrollState()
 
-    // --- ÉTATS POUR LE RESPECT DU CAHIER DES CHARGES ---
     var nbParticipants by remember { mutableIntStateOf(1) }
-    var selectedDate by remember { mutableStateOf("") } // Date vide au départ
-    var selectedHeure by remember { mutableStateOf("") } // Heure vide au départ
+    var selectedDate by remember { mutableStateOf("") }
+    var selectedHeure by remember { mutableStateOf("") }
 
-    // Simulation du quota (ex: 20 places max venant de l'API)
     val quotaMax = 20
     val placesRestantes = quotaMax - nbParticipants
-
-    // Calcul du prix total (Tarif unité * nb participants)
     val prixTotal = activite.tarif * nbParticipants
 
     Scaffold(
@@ -222,7 +231,6 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
                 .fillMaxSize()
                 .verticalScroll(scrollState)
         ) {
-            // 1. GALERIE / IMAGE
             AsyncImage(
                 model = "http://webngo.sio.bts:8004/${activite.image_url}",
                 contentDescription = null,
@@ -235,33 +243,28 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
             )
 
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                // 2. NOM ET DURÉE
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(activite.nom, modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Icon(painterResource(id = R.drawable.clock_bold), null, modifier = Modifier.size(18.dp))
                     Text(" ${activite.duree}", fontWeight = FontWeight.Medium)
                 }
 
-                // 3. DESCRIPTION ET RÈGLES
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(activite.description, fontSize = 14.sp, color = Color.DarkGray)
                 Text("Règles : RDV 30 min avant le départ sur le quai.", fontSize = 12.sp, color = Color.Gray)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 4. CALENDRIER INTERACTIF (Sélection Date)
                 Text("1. Choisir une date", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 SelectionButton(
                     text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate,
                     icon = R.drawable.calendar_blank_bold
                 ) {
-                    // Ici on simule la sélection, tu pourrais ouvrir un DatePickerDialog
                     selectedDate = "15 Juillet 2025"
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 5. SÉLECTION HEURE (Activée seulement si date choisie)
                 Text("2. Choisir l'horaire", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 SelectionButton(
                     text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure,
@@ -273,20 +276,17 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 6. INFOS QUOTAS ET PRIX TOTAL
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Prix Total Actualisé
                     Column {
                         Text("Prix Total", fontSize = 12.sp, color = Color.Gray)
                         val prixTxt = if (prixTotal % 1 == 0.0) prixTotal.toInt() else prixTotal
                         Text("$prixTxt €", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CalanquesBlue)
                     }
 
-                    // Gestion Participants & Quotas
                     Column(horizontalAlignment = Alignment.End) {
                         Text("Places restantes : $placesRestantes", fontSize = 12.sp, color = if(placesRestantes < 5) Color.Red else Color.Gray)
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -305,14 +305,10 @@ fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // 7. BOUTON AJOUTER AU PANIER (Activé si date + heure choisies)
                 val isReady = selectedDate.isNotEmpty() && selectedHeure.isNotEmpty()
 
                 Button(
-                    onClick = {
-                        // Logique d'ajout au panier virtuel ici
-                        onBack()
-                    },
+                    onClick = { onBack() },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     enabled = isReady,
                     shape = RoundedCornerShape(12.dp),
@@ -346,5 +342,3 @@ fun SelectionButton(text: String, icon: Int, enabled: Boolean = true, onClick: (
         Icon(painterResource(id = icon), null, tint = if (enabled) CalanquesBlue else Color.LightGray)
     }
 }
-
-
