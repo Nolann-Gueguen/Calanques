@@ -157,7 +157,7 @@ fun ItemPanier(
     titre: String,
     date: String,
     nbParticipants: Int,
-    montant: Int,
+    montant: Double,
     onDelete: () -> Unit
 ) {
     ElevatedCard(
@@ -210,7 +210,7 @@ fun ItemPanier(
                         )
                     }
                     Text(
-                        "$montant €",
+                        "${montant}€",
                         style = CustomTypography.titleLarge.copy(fontSize = 22.sp),
                         color = Color.Black
                     )

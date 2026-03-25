@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,30 +23,28 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// --- OUTILS DE FORMATAGE DES DATES (SQL -> Français) ---
+// --- OUTILS DE FORMATAGE DES DATES ---
 val sqlDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 val frenchDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
 val sqlTimeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 val frenchTimeFormat = SimpleDateFormat("HH'h'mm", Locale.getDefault())
 
 // --- TRADUCTEUR DE STATUTS ---
-// --- TRADUCTEUR DE STATUTS ---
 fun getStatusInfo(statusId: Int): Pair<String, Color> {
-    // Les couleurs standard adaptées à ton schema.sql
     return when (statusId) {
-        1 -> Pair("Confirmée", Color(0xFF4CAF50))  // Vert
-        2 -> Pair("Annulée", Color(0xFFF44336))    // Rouge
-        else -> Pair("Inconnu", Color.Gray)        // Sécurité au cas où
+        1 -> Pair("Confirmée", Color(0xFF4CAF50))
+        2 -> Pair("Annulée", Color(0xFFF44336))
+        else -> Pair("Inconnu", Color.Gray)
     }
 }
+
 @Composable
-fun AccountScreen() {
+fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sessionManager = remember { SessionManager(context) }
 
     var userToken by remember { mutableStateOf(sessionManager.fetchAuthToken()) }
     var isSigningUp by remember { mutableStateOf(false) }
-
     var isEditing by remember { mutableStateOf(false) }
     var currentUserProfile by remember { mutableStateOf<UserResponse?>(null) }
 
@@ -57,14 +54,12 @@ fun AccountScreen() {
                 user = currentUserProfile!!,
                 token = userToken!!,
                 onBack = { isEditing = false },
-                onSaveSuccess = {
-                    isEditing = false
-                    currentUserProfile = null
-                }
+                onSaveSuccess = { isEditing = false; currentUserProfile = null }
             )
         } else {
             ProfileScreen(
                 token = userToken!!,
+                onReservationClick = onReservationClick,
                 onLogout = {
                     sessionManager.clearAuthToken()
                     userToken = null
@@ -101,6 +96,7 @@ fun AccountScreen() {
 @Composable
 fun ProfileScreen(
     token: String,
+    onReservationClick: (ReservationResponse) -> Unit,
     onLogout: () -> Unit,
     onEditProfile: (UserResponse) -> Unit,
     onProfileLoaded: (UserResponse) -> Unit,
@@ -114,40 +110,35 @@ fun ProfileScreen(
     var errorMessage by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         try {
             isLoading = true
-
-            // 1. Profil
+            // 1. Charger le profil
             if (userProfileState == null) {
-                val response = RetrofitClient.instance.getMe("Bearer $token")
-                userProfile = response
-                onProfileLoaded(response)
+                userProfile = RetrofitClient.instance.getMe("Bearer $token")
+                onProfileLoaded(userProfile!!)
             } else {
                 userProfile = userProfileState
             }
 
-            // 2. Dictionnaire des noms d'activités
+            // 2. Charger TOUTES les activités pour avoir les noms et tarifs (activitiesMap)
             val acts = RetrofitClient.instance.getActivites()
             activitiesMap = acts.associateBy { it.id }
 
-            // 3. Réservations
+            // 3. Charger les réservations
             reservations = RetrofitClient.instance.getMyReservations("Bearer $token")
-
             isLoading = false
         } catch (e: Exception) {
             isLoading = false
-            Log.e("API_DEBUG", "Erreur chargement données profil", e)
+            Log.e("API_DEBUG", "Erreur chargement profil", e)
             errorMessage = "Erreur de synchronisation avec le serveur."
         }
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(scrollState),
+        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (isLoading) {
@@ -158,155 +149,107 @@ fun ProfileScreen(
         } else {
             val user = userProfile!!
 
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Avatar",
-                modifier = Modifier.size(100.dp).padding(bottom = 16.dp),
-                tint = CalanquesBlue
-            )
-
+            Icon(Icons.Default.AccountCircle, null, Modifier.size(100.dp).padding(bottom = 16.dp), tint = CalanquesBlue)
             val fullName = "${user.prenom ?: ""} ${user.nom ?: ""}".trim()
-            Text(text = fullName.ifEmpty { "Utilisateur" }, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CalanquesBlue)
-            Text(text = user.email, fontSize = 16.sp, color = Color.Gray)
+            Text(fullName.ifEmpty { "Utilisateur" }, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CalanquesBlue)
+            Text(user.email, fontSize = 16.sp, color = Color.Gray)
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- CARTE INFOS CONTACT ---
+            // Carte informations profil
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = CalanquesLightGrey),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                colors = CardDefaults.cardColors(containerColor = CalanquesLightGrey)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Détails du compte", fontWeight = FontWeight.Bold, color = CalanquesBlue, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("Détails du compte", fontWeight = FontWeight.Bold, color = CalanquesBlue)
                     InfoRow(label = "Prénom", value = user.prenom)
                     InfoRow(label = "Nom", value = user.nom)
                     InfoRow(label = "Téléphone", value = user.telephone, icon = "📞")
-                    val fullAddress = "${user.adresse ?: ""}\n${user.cp ?: ""} ${user.ville ?: ""}".trim()
-                    if (fullAddress.length > 5) InfoRow(label = "Adresse", value = fullAddress, icon = "📍")
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            // --- SECTION RÉSERVATIONS ---
-            Text(
-                text = "Mes Réservations",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = CalanquesBlue,
-                modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
-            )
+            Text("Mes Réservations", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CalanquesBlue, modifier = Modifier.align(Alignment.Start))
 
             if (reservations.isEmpty()) {
-                Text("Aucune réservation enregistrée.", color = Color.Gray, modifier = Modifier.padding(vertical = 16.dp))
+                Text("Aucune réservation.", color = Color.Gray, modifier = Modifier.padding(vertical = 16.dp))
             } else {
                 reservations.forEach { res ->
-                    ReservationCard(res, activitiesMap)
+                    ReservationCard(
+                        res = res,
+                        activitiesMap = activitiesMap,
+                        onClick = {
+                            // --- LOGIQUE DE RÉPARATION DES DONNÉES AU CLIC ---
+                            scope.launch {
+                                try {
+                                    // On essaie l'API d'abord
+                                    val apiDetails = RetrofitClient.instance.getReservationActivities("Bearer $token", res.id)
+
+                                    // On fusionne avec activitiesMap pour être SUR d'avoir le tarif et le nom
+                                    val repairedActivities = apiDetails.map { detail ->
+                                        val infoRef = activitiesMap[detail.activity_id]
+                                        detail.copy(
+                                            titre_activite = infoRef?.nom ?: detail.titre_activite ?: "Activité",
+                                            prix_unitaire = infoRef?.tarif ?: detail.prix_unitaire
+                                        )
+                                    }
+                                    onReservationClick(res.copy(activities = repairedActivities))
+                                } catch (e: Exception) {
+                                    // Si l'API échoue, on répare manuellement ce qu'on a déjà
+                                    val manualRepair = res.activities.map { detail ->
+                                        val infoRef = activitiesMap[detail.activity_id]
+                                        detail.copy(
+                                            titre_activite = infoRef?.nom ?: "Activité",
+                                            prix_unitaire = infoRef?.tarif ?: 0.0
+                                        )
+                                    }
+                                    onReservationClick(res.copy(activities = manualRepair))
+                                }
+                            }
+                        }
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
-            OutlinedButton(
-                onClick = { onEditProfile(user) },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(CalanquesBlue))
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = null, tint = CalanquesBlue, modifier = Modifier.padding(end = 8.dp))
+            OutlinedButton(onClick = { onEditProfile(user) }, modifier = Modifier.fillMaxWidth()) {
                 Text("Modifier mes informations", color = CalanquesBlue)
             }
-
-            TextButton(onClick = onLogout) {
-                Text("Se déconnecter", color = CalanquesRed)
-            }
+            TextButton(onClick = onLogout) { Text("Se déconnecter", color = CalanquesRed) }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReservationCard(res: ReservationResponse, activitiesMap: Map<Int, Activite>) {
-    // Formatage de la date de la commande globale
-    val dateCommandeFr = try {
-        val dateObj = sqlDateFormat.parse(res.date)
-        frenchDateFormat.format(dateObj!!)
-    } catch (e: Exception) { res.date }
-
-    // Récupération des infos du statut
+fun ReservationCard(res: ReservationResponse, activitiesMap: Map<Int, Activite>, onClick: () -> Unit) {
+    val dateFr = try { frenchDateFormat.format(sqlDateFormat.parse(res.date)!!) } catch (e: Exception) { res.date }
     val (statusText, statusColor) = getStatusInfo(res.status_reservation_id)
 
-    Card(
+    ElevatedCard(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // --- EN-TÊTE AVEC BADGE STATUT ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Column {
-                    Text(text = "Réservation #${res.id}", fontWeight = FontWeight.Bold, color = CalanquesBlue)
-                    Text(text = "Le $dateCommandeFr", fontSize = 12.sp, color = Color.Gray)
+                    Text("Réservation #${res.id}", fontWeight = FontWeight.Bold, color = CalanquesBlue)
+                    Text("Le $dateFr", fontSize = 12.sp, color = Color.Gray)
                 }
-
-                Surface(
-                    color = statusColor.copy(alpha = 0.15f), // Fond léger
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Text(
-                        text = statusText,
-                        color = statusColor, // Texte vif
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                Surface(color = statusColor.copy(0.15f), shape = RoundedCornerShape(12.dp)) {
+                    Text(statusText, color = statusColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
                 }
             }
 
+            // Aperçu des activités dans la carte
             res.activities.forEach { detail ->
-                val activiteInfo = activitiesMap[detail.activity_id]
-
-                // Formatage de la date de l'activité
-                val dateActFr = try {
-                    val d = sqlDateFormat.parse(detail.date ?: "")
-                    frenchDateFormat.format(d!!)
-                } catch (e: Exception) { detail.date ?: "Date NC" }
-
-                // Formatage de l'heure
-                val heureFr = try {
-                    val h = sqlTimeFormat.parse(detail.heure ?: "")
-                    frenchTimeFormat.format(h!!)
-                } catch (e: Exception) { detail.heure?.take(5) ?: "--:--" }
-
-                Divider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = activiteInfo?.nom ?: detail.titre_activite ?: "Activité",
-                            fontWeight = FontWeight.Bold
-                        )
-                        // Affichage à la française
-                        Text(text = "📅 $dateActFr à $heureFr", fontSize = 12.sp)
-                    }
-                    Text(
-                        text = "${detail.nb_participants} pers.",
-                        fontWeight = FontWeight.Bold,
-                        color = CalanquesBlue
-                    )
-                }
-
-                if (detail.montant > 0) {
-                    Text(
-                        text = "Sous-total : ${detail.montant}€",
-                        fontSize = 11.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.align(Alignment.End)
-                    )
+                val info = activitiesMap[detail.activity_id]
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
+                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                    Text(info?.nom ?: "Activité", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("${detail.nb_participants} pers.", color = CalanquesBlue, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -317,8 +260,8 @@ fun ReservationCard(res: ReservationResponse, activitiesMap: Map<Int, Activite>)
 fun InfoRow(label: String, value: String?, icon: String? = null) {
     if (!value.isNullOrBlank()) {
         Column(modifier = Modifier.padding(bottom = 8.dp)) {
-            Text(text = label, fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-            Text(text = "${icon ?: ""} $value".trim(), fontSize = 14.sp, color = Color.Black)
+            Text(label, fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+            Text("${icon ?: ""} $value".trim(), fontSize = 14.sp, color = Color.Black)
         }
     }
 }
