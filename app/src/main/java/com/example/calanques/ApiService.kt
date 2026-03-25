@@ -15,6 +15,13 @@ interface ApiService {
     @GET("api/activities")
     suspend fun getActivites(): List<Activite> // Pour charger la liste et les noms
 
+
+    @GET("api/reservations/{id}")
+    suspend fun getReservationDetail(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): ReservationResponse
+
     // On utilise /my pour ne voir que les réservations de l'utilisateur connecté
     @GET("api/reservations/my")
     suspend fun getMyReservations(@Header("Authorization") token: String): List<ReservationResponse>
