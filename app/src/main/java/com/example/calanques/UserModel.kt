@@ -64,18 +64,15 @@ data class ReservationActivite(
     @SerializedName("heure_activite")
     val heure: String?,
 
-    @SerializedName("nom")
-    val titre_activite: String? = "Activité",
-
-    @SerializedName("image_url")
-    val image_url: String? = null,
-
-    @SerializedName("tarif")
+    // L'API ne renvoie pas ces champs dans /api/reservations,
+    // donc on les laisse en optionnel pour le mapping manuel
+    val titre_activite: String? = null,
     val prix_unitaire: Double = 0.0,
 
     @SerializedName("nb_participants")
     val nb_participants: Int = 0
 ) {
+    // Cette propriété calculée fonctionnera dès qu'on aura injecté le vrai prix
     val montant: Double get() = nb_participants * prix_unitaire
 }
 

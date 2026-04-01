@@ -15,8 +15,6 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +48,7 @@ fun formatDateFr(dateStr: String?): String {
 @Composable
 fun ReservationDetailScreen(
     reservation: ReservationResponse,
+    allActivities: List<Activite>, // <-- CORRECTION : On passe la liste globale pour récupérer prix/noms
     onBack: () -> Unit,
     onRefresh: () -> Unit
 ) {
@@ -84,7 +83,6 @@ fun ReservationDetailScreen(
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Section Récapitulatif
             item {
                 Column(
                     modifier = Modifier
@@ -106,16 +104,22 @@ fun ReservationDetailScreen(
                 Text("Activités incluses", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
             }
 
-            // Liste des activités réservées
+            // CORRECTION : Mapping des IDs vers les vraies données
             items(reservation.activities) { activity ->
-                ActivityDetailCard(activity)
+                val infoReference = allActivities.find { it.id == activity.activity_id }
+
+                // On crée une copie enrichie de l'activité avec le prix et le nom de la liste globale
+                val enrichedActivity = activity.copy(
+                    titre_activite = infoReference?.nom ?: "Activité #${activity.activity_id}",
+                    prix_unitaire = infoReference?.tarif ?: 0.0
+                )
+
+                ActivityDetailCard(enrichedActivity)
             }
 
-            // Section Action : Annulation
             item {
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Statut 1 = Confirmée (selon ton schéma SQL)
                 if (reservation.status_reservation_id == 1) {
                     Button(
                         onClick = { showConfirmDialog = true },
@@ -125,17 +129,12 @@ fun ReservationDetailScreen(
                         enabled = !isCancelling
                     ) {
                         if (isCancelling) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Text("Annuler ma réservation", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
                 } else {
-                    // Affichage si le statut est déjà à 2 (Annulée)
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         color = CalanquesRed.copy(alpha = 0.1f),
@@ -147,7 +146,6 @@ fun ReservationDetailScreen(
                             color = CalanquesRed,
                             modifier = Modifier.padding(16.dp).fillMaxWidth(),
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -156,13 +154,12 @@ fun ReservationDetailScreen(
         }
     }
 
-    // --- DIALOGUE DE CONFIRMATION ---
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = CalanquesRed) },
             title = { Text("Confirmer l'annulation") },
-            text = { Text("Souhaitez-vous vraiment annuler cette réservation ? Cette action est irréversible.") },
+            text = { Text("Souhaitez-vous vraiment annuler cette réservation ?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -170,14 +167,9 @@ fun ReservationDetailScreen(
                         isCancelling = true
                         scope.launch {
                             try {
-                                // Mise à jour vers le statut_reservation_id = 2 (Annulée)
-                                RetrofitClient.instance.updateReservationStatus(
-                                    "Bearer $token",
-                                    reservation.id,
-                                    StatusUpdateRequest(2)
-                                )
-                                onRefresh() // Déclenche le refresh du profil
-                                onBack()    // Ferme l'écran
+                                RetrofitClient.instance.updateReservationStatus("Bearer $token", reservation.id, StatusUpdateRequest(2))
+                                onRefresh()
+                                onBack()
                             } catch (e: Exception) {
                                 isCancelling = false
                                 Log.e("API_ERROR", "Erreur lors de l'annulation", e)
@@ -199,9 +191,6 @@ fun ReservationDetailScreen(
 
 @Composable
 fun ActivityDetailCard(activity: ReservationActivite) {
-    // Calcul précis du montant total
-    val totalCalcule = activity.nb_participants * activity.prix_unitaire
-
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -222,23 +211,12 @@ fun ActivityDetailCard(activity: ReservationActivite) {
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
 
-            // Ligne Date et Heure
-            InfoRow(
-                icon = Icons.Default.CalendarMonth,
-                text = "Le ${formatDateFr(activity.date)} à ${activity.heure?.take(5) ?: "--:--"}"
-            )
-
+            InfoRow(icon = Icons.Default.CalendarMonth, text = "Le ${formatDateFr(activity.date)} à ${activity.heure?.take(5) ?: "--:--"}")
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Ligne Participants + Tarif Unitaire (pour vérifier le calcul)
-            InfoRow(
-                icon = Icons.Default.Groups,
-                text = "${activity.nb_participants} participant(s) x ${activity.prix_unitaire.toInt()} €"
-            )
+            InfoRow(icon = Icons.Default.Groups, text = "${activity.nb_participants} participant(s) x ${activity.prix_unitaire.toInt()} €")
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Badge du Total Réglé
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -253,7 +231,7 @@ fun ActivityDetailCard(activity: ReservationActivite) {
                     Text("  Total réglé", fontSize = 14.sp, color = CalanquesBlue)
                 }
                 Text(
-                    text = "${totalCalcule.toInt()} €",
+                    text = "${activity.montant.toInt()} €",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = CalanquesBlue
