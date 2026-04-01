@@ -93,17 +93,17 @@ data class ReservationResponse(
 // ==========================================
 
 data class ReservationActiviteCreate(
-    val activity_id: Int,
-    val date: String,
-    val heure: String,
+    val activite_id: Int,
+    val date_activite: String,
+    val heure_activite: String,
     val nb_participants: Int
 )
 
 data class ReservationCreate(
     val date: String,
-    val commentaire: String? = null,
-    val status_reservation_id: Int = 1,
-    val activities: List<ReservationActiviteCreate>
+    val activites: List<ReservationActiviteCreate>, // <-- On change "activities" par "activites"
+    val commentaire: String = "", // <-- On ajoute le champ commentaire obligatoire
+    val status_reservation_id: Int = 1 // (Garde ce que tu avais déjà ici)
 )
 
 data class StatusUpdateRequest(val statut_reservation_id: Int)
