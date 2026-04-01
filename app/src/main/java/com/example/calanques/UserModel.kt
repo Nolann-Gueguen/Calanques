@@ -64,19 +64,18 @@ data class ReservationActivite(
     @SerializedName("heure_activite")
     val heure: String?,
 
-    @SerializedName("nom") // Indispensable pour récupérer le nom depuis le JSON
+    @SerializedName("nom")
     val titre_activite: String? = "Activité",
 
     @SerializedName("image_url")
     val image_url: String? = null,
 
-    @SerializedName("tarif") // Indispensable pour que le prix ne soit plus à 0
+    @SerializedName("tarif")
     val prix_unitaire: Double = 0.0,
 
     @SerializedName("nb_participants")
     val nb_participants: Int = 0
 ) {
-    // Calcul automatique du prix total pour cette ligne
     val montant: Double get() = nb_participants * prix_unitaire
 }
 
@@ -108,3 +107,13 @@ data class ReservationCreate(
 )
 
 data class StatusUpdateRequest(val statut_reservation_id: Int)
+
+// ==========================================
+// 4. MODÈLE TYPE D'ACTIVITÉ
+// ==========================================
+
+data class TypeActivite(
+    val id: Int,
+    @SerializedName("libelle") val libelle: String,
+    @SerializedName("image_url") val image_url: String? = null
+)

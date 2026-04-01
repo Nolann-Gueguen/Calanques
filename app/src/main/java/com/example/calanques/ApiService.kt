@@ -12,9 +12,37 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ApiService {
-    @GET("api/activities")
-    suspend fun getActivites(): List<Activite> // Pour charger la liste et les noms
 
+    // --- ACTIVITÉS ---
+    @GET("api/activities/")
+    suspend fun getActivites(): List<Activite>
+
+    @GET("api/activities/{id}")
+    suspend fun getActivityDetail(@Path("id") id: Int): Activite
+
+    // --- TYPES D'ACTIVITÉS ---
+    @GET("api/activity-types/")
+    suspend fun getTypesActivites(): List<TypeActivite>
+
+    // --- RÉSERVATIONS ---
+    @GET("api/reservations/my")
+    suspend fun getMyReservations(@Header("Authorization") token: String): List<ReservationResponse>
+
+    @GET("api/reservations/")
+    suspend fun getReservations(): List<ReservationResponse>
+
+    @POST("api/reservations/")
+    suspend fun createReservation(@Body reservation: ReservationCreate): Response<ReservationResponse>
+
+    @DELETE("api/reservations/{reservation_id}")
+    suspend fun deleteReservation(@Path("reservation_id") id: Int): Response<Unit>
+
+    @PUT("api/reservations/{id}/status")
+    suspend fun updateReservationStatus(
+        @Header("Authorization") token: String,
+        @Path("id") reservationId: Int,
+        @Body statusRequest: StatusUpdateRequest
+    ): ApiResponse
 
     @GET("api/reservations/{reservation_id}/activities")
     suspend fun getReservationActivities(
@@ -22,17 +50,7 @@ interface ApiService {
         @Path("reservation_id") reservationId: Int
     ): List<ReservationActivite>
 
-    // On utilise /my pour ne voir que les réservations de l'utilisateur connecté
-    @GET("api/reservations/my")
-    suspend fun getMyReservations(@Header("Authorization") token: String): List<ReservationResponse>
-
-    // Pour l'admin ou la gestion globale
-    @GET("api/reservations")
-    suspend fun getReservations(): List<ReservationResponse>
-
-    @DELETE("api/reservations/{reservation_id}")
-    suspend fun deleteReservation(@Path("reservation_id") id: Int): Response<Unit>
-
+    // --- AUTH ---
     @POST("api/auth/signup")
     suspend fun registerUser(@Body request: UserCreateRequest): ApiResponse
 
@@ -43,6 +61,7 @@ interface ApiService {
         @Field("password") password: String
     ): TokenResponse
 
+    // --- UTILISATEURS ---
     @GET("api/users/me")
     suspend fun getMe(@Header("Authorization") token: String): UserResponse
 
@@ -51,19 +70,4 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body request: UserUpdateRequest
     ): UserResponse
-
-    //Details d'une activité
-    @GET("api/activites/{id}")
-    suspend fun getActivityDetail(@Path("id") id: Int): Activite
-
-    @PUT("api/reservations/{id}/status")
-    suspend fun updateReservationStatus(
-        @Header("Authorization") token: String,
-        @Path("id") reservationId: Int,
-        @Body statusRequest: StatusUpdateRequest
-    ): ApiResponse
-
-    //Ajouter au panier
-    @POST("api/reservations")
-    suspend fun createReservation(@Body reservation: ReservationCreate): Response<ReservationResponse>
 }
