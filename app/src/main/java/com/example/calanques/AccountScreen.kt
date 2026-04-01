@@ -35,43 +35,51 @@ fun getStatusInfo(statusId: Int): Pair<String, Color> {
 }
 
 @Composable
-fun AccountScreen(
-    onReservationClick: (ReservationResponse) -> Unit,
-    onLogout: () -> Unit // AJOUTÉ : Reçu depuis MainActivity via HomeScreen
-) {
+fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit, onLogout: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sessionManager = remember { SessionManager(context) }
-    val userToken = sessionManager.fetchAuthToken()
+
+    // CORRECTION 1 : On utilise var + remember pour pouvoir le modifier et mettre à jour l'UI
+    var userToken by remember { mutableStateOf(sessionManager.fetchAuthToken()) }
 
     var isEditing by remember { mutableStateOf(false) }
     var currentUserProfile by remember { mutableStateOf<UserResponse?>(null) }
 
-    // Si on n'a pas de token (sécurité), on appelle le logout pour retourner au login
-    if (userToken == null) {
-        LaunchedEffect(Unit) { onLogout() }
-        return
-    }
-
-    if (isEditing && currentUserProfile != null) {
-        EditProfileScreen(
-            user = currentUserProfile!!,
-            token = userToken,
-            onBack = { isEditing = false },
-            onSaveSuccess = { isEditing = false; currentUserProfile = null }
-        )
+    if (userToken != null) {
+        if (isEditing && currentUserProfile != null) {
+            EditProfileScreen(
+                user = currentUserProfile!!,
+                token = userToken!!,
+                onBack = { isEditing = false },
+                onSaveSuccess = { isEditing = false; currentUserProfile = null }
+            )
+        } else {
+            ProfileScreen(
+                token = userToken!!,
+                onReservationClick = onReservationClick,
+                onLogout = {
+                    sessionManager.clearSession()
+                    userToken = null // Ne plantera plus !
+                    currentUserProfile = null
+                    onLogout() // Informe le parent (HomeScreen)
+                },
+                onEditProfile = { profile ->
+                    currentUserProfile = profile
+                    isEditing = true
+                },
+                onProfileLoaded = { profile ->
+                    currentUserProfile = profile
+                },
+                userProfileState = currentUserProfile
+            )
+        }
     } else {
-        ProfileScreen(
-            token = userToken,
-            onReservationClick = onReservationClick,
-            onLogout = onLogout, // Transmis ici
-            onEditProfile = { profile ->
-                currentUserProfile = profile
-                isEditing = true
+        LoginScreen(
+            onLoginSuccess = { token ->
+                sessionManager.saveAuthToken(token)
+                userToken = token // L'écran va se recharger et afficher le ProfileScreen
             },
-            onProfileLoaded = { profile ->
-                currentUserProfile = profile
-            },
-            userProfileState = currentUserProfile
+            onNavigateToSignUp = { /* Gérer la navigation vers l'inscription si besoin */ }
         )
     }
 }

@@ -29,13 +29,19 @@ interface ApiService {
     suspend fun getMyReservations(@Header("Authorization") token: String): List<ReservationResponse>
 
     @GET("api/reservations/")
-    suspend fun getReservations(): List<ReservationResponse>
+    suspend fun getReservations(@Header("Authorization") token: String): List<ReservationResponse>
 
     @POST("api/reservations/")
-    suspend fun createReservation(@Body reservation: ReservationCreate): Response<ReservationResponse>
+    suspend fun createReservation(
+        @Header("Authorization") token: String,
+        @Body reservation: ReservationCreate
+    ): Response<ReservationResponse>
 
     @DELETE("api/reservations/{reservation_id}")
-    suspend fun deleteReservation(@Path("reservation_id") id: Int): Response<Unit>
+    suspend fun deleteReservation(
+        @Header("Authorization") token: String, // <-- Ajout du token ici
+        @Path("reservation_id") id: Int
+    ): Response<Unit>
 
     @PUT("api/reservations/{id}/status")
     suspend fun updateReservationStatus(
