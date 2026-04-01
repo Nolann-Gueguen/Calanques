@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -74,28 +75,40 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
                     label = { Text("Activités") },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0; selectedActivite = null; selectedResDetail = null },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = CalanquesBlue,
+                        selectedTextColor = CalanquesBlue
+                    )
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Panier") },
                     label = { Text("Panier") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1; selectedResDetail = null },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = CalanquesBlue,
+                        selectedTextColor = CalanquesBlue
+                    )
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Compte") },
                     label = { Text("Compte") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = CalanquesBlue,
+                        selectedTextColor = CalanquesBlue
+                    )
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.LocationOn, contentDescription = "Carte") },
                     label = { Text("Carte") },
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3; selectedResDetail = null },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = CalanquesBlue, selectedTextColor = CalanquesBlue)
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = CalanquesBlue,
+                        selectedTextColor = CalanquesBlue
+                    )
                 )
             }
         }
@@ -106,7 +119,10 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
                     if (selectedActivite == null) {
                         HomeContent(roleId = roleId, onActiviteClick = { a -> selectedActivite = a }, onLogout = onLogout)
                     } else {
-                        DetailActiviteScreen(activite = selectedActivite!!, onBack = { selectedActivite = null })
+                        DetailActiviteScreen(
+                            activiteId = selectedActivite!!.id,
+                            onBack = { selectedActivite = null }
+                        )
                     }
                 }
                 1 -> PanierScreen()
@@ -140,62 +156,226 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
 @Composable
 fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -> Unit) {
     val listeActivites = remember { mutableStateListOf<Activite>() }
+    val listeTypes = remember { mutableStateListOf<TypeActivite>() }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedType by remember { mutableStateOf<TypeActivite?>(null) }
 
     LaunchedEffect(Unit) {
         try {
-            val resultat = RetrofitClient.instance.getActivites()
+            val activites = RetrofitClient.instance.getActivites()
             listeActivites.clear()
-            listeActivites.addAll(resultat)
+            listeActivites.addAll(activites)
+
+            val types = RetrofitClient.instance.getTypesActivites()
+            listeTypes.clear()
+            listeTypes.addAll(types)
         } catch (e: Exception) {
-            Log.e("API_ERROR", "Erreur : ${e.message}")
+            Log.e("API_ERROR", "Erreur chargement : ${e.message}")
         } finally {
             isLoading = false
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(CalanquesLightGrey), horizontalAlignment = Alignment.CenterHorizontally) {
+    // Si un type est sélectionné → on affiche ses activités
+    if (selectedType != null) {
+        val activitesDuType = listeActivites.filter { it.type_id == selectedType!!.id }
+        ActivitesDuTypeScreen(
+            type = selectedType!!,
+            activites = activitesDuType,
+            onActiviteClick = onActiviteClick,
+            onBack = { selectedType = null }
+        )
+        return
+    }
 
-        // Header avec Logo et bouton déco
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Spacer(modifier = Modifier.width(48.dp)) // Équilibre le bouton de droite
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Logo",
-                modifier = Modifier.height(60.dp),
-                contentScale = ContentScale.Fit
-            )
-            IconButton(onClick = onLogout) {
-                Icon(Icons.Default.ExitToApp, contentDescription = "Déconnexion", tint = Color.Gray)
-            }
-        }
-
-        // --- AFFICHAGE SELON RÔLE ---
-        if (roleId == 2) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
-            ) {
-                Text(
-                    "Mode Administrateur",
-                    modifier = Modifier.padding(8.dp).align(Alignment.CenterHorizontally),
-                    color = Color.Red,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
+    // Écran principal : liste des types
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CalanquesLightGrey),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Logo",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .padding(vertical = 16.dp),
+            contentScale = ContentScale.Fit
+        )
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = CalanquesBlue)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(listeActivites) { activite ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Nos catégories",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = CalanquesBlue,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = "Choisissez une catégorie d'activité",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                items(listeTypes) { type ->
+                    val nbActivites = listeActivites.count { it.type_id == type.id }
+                    TypeActiviteCard(
+                        type = type,
+                        nbActivites = nbActivites,
+                        onClick = { selectedType = type }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// --- CARTE D'UN TYPE D'ACTIVITÉ ---
+@Composable
+fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) {
+    val baseUrl = "http://webngo.sio.bts:8003/"
+    val imageUrl = if (!type.image_url.isNullOrBlank())
+        baseUrl + type.image_url.removePrefix("/")
+    else null
+
+    ElevatedCard(
+        onClick = onClick,
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+        ) {
+            // Image de fond du type
+            if (imageUrl != null) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = type.libelle,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(CalanquesBlue.copy(alpha = 0.15f))
+                )
+            }
+
+            // Dégradé sombre en bas pour lisibilité du texte
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.65f)
+                            ),
+                            startY = 60f
+                        )
+                    )
+            )
+
+            // Texte + badge en bas à gauche
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = type.libelle,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    color = CalanquesBlue.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "$nbActivites activité${if (nbActivites > 1) "s" else ""}",
+                        fontSize = 12.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// --- ÉCRAN ACTIVITÉS D'UN TYPE ---
+@Composable
+fun ActivitesDuTypeScreen(
+    type: TypeActivite,
+    activites: List<Activite>,
+    onActiviteClick: (Activite) -> Unit,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CalanquesLightGrey)
+    ) {
+        // Header bleu avec bouton retour
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CalanquesBlue)
+                .statusBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(id = R.drawable.arrow_left),
+                    contentDescription = "Retour",
+                    tint = Color.White
+                )
+            }
+            Text(
+                text = type.libelle,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+        }
+
+        if (activites.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Aucune activité disponible pour cette catégorie.",
+                    color = Color.Gray
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(activites) { activite ->
                     ActiviteCard(activite = activite, onClick = { onActiviteClick(activite) })
                 }
             }
@@ -203,7 +383,7 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
     }
 }
 
-// --- 4. CARTE D'ACTIVITÉ ---
+// --- CARTE D'ACTIVITÉ ---
 @Composable
 fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
     val baseUrl = "http://webngo.sio.bts:8003/"
@@ -217,18 +397,47 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
     ) {
         Column {
-            AsyncImage(model = fullImageUrl, contentDescription = activite.nom, modifier = Modifier.fillMaxWidth().height(150.dp), contentScale = ContentScale.Crop)
+            AsyncImage(
+                model = fullImageUrl,
+                contentDescription = activite.nom,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                contentScale = ContentScale.Crop
+            )
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = activite.nom, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(text = activite.description, fontSize = 13.sp, color = Color.Gray, maxLines = 2)
+                Text(
+                    text = activite.nom,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = activite.description,
+                    fontSize = 13.sp,
+                    color = Color.Gray,
+                    maxLines = 2
+                )
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     val tarifTxt = if (activite.tarif % 1 == 0.0) activite.tarif.toInt() else activite.tarif
-                    Text(text = "$tarifTxt €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
-
-                    Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        text = "$tarifTxt €",
+                        fontSize = 18.sp,
+                        color = CalanquesBlue,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Surface(
+                        color = Color.LightGray.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
                         Text(
-                            text = activite.duree.split(":").let { if(it.size >= 2) "${it[0]}h${it[1]}" else activite.duree },
+                            text = activite.duree.split(":").let {
+                                if (it.size >= 2) "${it[0]}h${it[1]}" else activite.duree
+                            },
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             fontSize = 12.sp
                         )
@@ -236,103 +445,5 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
                 }
             }
         }
-    }
-}
-
-// --- 5. ÉCRAN DÉTAIL ---
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DetailActiviteScreen(activite: Activite, onBack: () -> Unit) {
-    val scrollState = rememberScrollState()
-    var nbParticipants by remember { mutableIntStateOf(1) }
-    var selectedDate by remember { mutableStateOf("") }
-    var selectedHeure by remember { mutableStateOf("") }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-
-    val quotaMax = 20
-    val placesRestantes = quotaMax - nbParticipants
-    val prixTotal = activite.tarif * nbParticipants
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(activite.nom, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painterResource(id = R.drawable.arrow_left), contentDescription = "Retour")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(scrollState)) {
-                AsyncImage(
-                    model = "http://webngo.sio.bts:8004/${activite.image_url}",
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxWidth().height(200.dp).padding(16.dp).background(Color.LightGray, RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop
-                )
-
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(activite.nom, modifier = Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Icon(painterResource(id = R.drawable.clock_bold), null, modifier = Modifier.size(18.dp))
-                        Text(" ${activite.duree}", fontWeight = FontWeight.Medium)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(activite.description, fontSize = 14.sp, color = Color.DarkGray)
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text("1. Choisir une date", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    SelectionButton(text = if (selectedDate.isEmpty()) "Sélectionner une date" else selectedDate, icon = R.drawable.calendar_blank_bold) { showDatePicker = true }
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text("2. Choisir l'horaire", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    SelectionButton(text = if (selectedHeure.isEmpty()) "Sélectionner une heure" else selectedHeure, icon = R.drawable.clock_bold, enabled = selectedDate.isNotEmpty()) { showTimePicker = true }
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text("Prix Total", fontSize = 12.sp, color = Color.Gray)
-                            Text("${prixTotal.toInt()} €", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CalanquesBlue)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Participants", fontSize = 12.sp, color = Color.Gray)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { if (nbParticipants > 1) nbParticipants-- }) { Icon(painterResource(id = R.drawable.minus_circle), null, tint = CalanquesBlue) }
-                                Text("$nbParticipants", modifier = Modifier.padding(horizontal = 8.dp))
-                                IconButton(onClick = { if (nbParticipants < quotaMax) nbParticipants++ }) { Icon(painterResource(id = R.drawable.plus_circle), null, tint = CalanquesBlue) }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Button(
-                        onClick = { onBack() },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = selectedDate.isNotEmpty() && selectedHeure.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = CalanquesBlue)
-                    ) {
-                        Text("Ajouter au panier", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            // Dialogues Date/Time Picker omis pour brièveté mais à garder de ton code original...
-        }
-    }
-}
-
-@Composable
-fun SelectionButton(text: String, icon: Int, enabled: Boolean = true, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Black)
-    ) {
-        Text(text)
-        Spacer(Modifier.weight(1f))
-        Icon(painterResource(id = icon), null, tint = if (enabled) CalanquesBlue else Color.LightGray)
     }
 }
