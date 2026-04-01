@@ -23,6 +23,16 @@ import com.example.calanques.ui.theme.CalanquesRed
 import com.example.calanques.ui.theme.CalanquesGrey
 import com.example.calanques.ui.theme.CalanquesLightGrey
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+// Formats pour la date
+val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.FRANCE)
+val displayDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.FRANCE)
+
+// Formats pour l'heure
+val apiTimeFormat = SimpleDateFormat("HH:mm:ss", Locale.FRANCE)
+val displayTimeFormat = SimpleDateFormat("HH'h'mm", Locale.FRANCE)
 
 val CustomTypography = Typography(
     titleLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 20.sp),
@@ -34,21 +44,25 @@ val CustomTypography = Typography(
 fun PanierScreen(refreshKey: Int = 0) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
-    // Récupère le token depuis le SessionManager (même système que AccountScreen)
     val token = sessionManager.fetchAuthToken() ?: ""
 
     val reservations = remember { mutableStateListOf<ReservationResponse>() }
+    // --- NOUVEAU : On crée une variable pour stocker le catalogue et avoir les prix/noms ---
+    var activitiesMap by remember { mutableStateOf<Map<Int, Activite>>(emptyMap()) }
+
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
-    // Se relance à chaque fois que refreshKey change (après un ajout au panier)
     LaunchedEffect(refreshKey) {
         isLoading = true
         reservations.clear()
 
-        // On vérifie qu'on est connecté avant de contacter l'API
         if (token.isNotEmpty()) {
             try {
+                // --- NOUVEAU : On télécharge le catalogue des activités ---
+                activitiesMap = RetrofitClient.instance.getActivites().associateBy { it.id }
+
+                // Ensuite on récupère les réservations
                 val response = RetrofitClient.instance.getMyReservations(token)
                 reservations.addAll(response.filter { it.status_reservation_id == 1 })
             } catch (e: Exception) {
@@ -59,7 +73,13 @@ fun PanierScreen(refreshKey: Int = 0) {
         isLoading = false
     }
 
-    val totalGlobal = reservations.sumOf { res -> res.activities.sumOf { it.montant } }
+    // --- NOUVEAU : On calcule le total en utilisant les vrais prix de activitiesMap ---
+    val totalGlobal = reservations.sumOf { res ->
+        res.activities.sumOf { act ->
+            val tarifUnitaire = activitiesMap[act.activity_id]?.tarif ?: 0.0
+            tarifUnitaire * act.nb_participants
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -113,11 +133,17 @@ fun PanierScreen(refreshKey: Int = 0) {
                 ) {
                     items(reservations) { reservation ->
                         reservation.activities.forEach { activite ->
+
+                            // --- NOUVEAU : On injecte les vraies informations de l'activité ---
+                            val infoRef = activitiesMap[activite.activity_id]
+                            val vraiTitre = infoRef?.nom ?: activite.titre_activite ?: "Activité Calanques"
+                            val vraiPrix = (infoRef?.tarif ?: 0.0) * activite.nb_participants
+
                             ItemPanier(
-                                titre = activite.titre_activite ?: "Activité Calanques",
+                                titre = vraiTitre,
                                 date = "${activite.date} à ${activite.heure}",
                                 nbParticipants = activite.nb_participants,
-                                montant = activite.montant,
+                                montant = vraiPrix,
                                 onDelete = {
                                     scope.launch {
                                         try {

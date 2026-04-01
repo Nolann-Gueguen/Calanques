@@ -250,24 +250,35 @@ fun DetailActiviteScreen(
                                 if (!canAdd) return@Button
                                 val reservation = ReservationCreate(
                                     date = selectedDate!!,
-                                    activities = listOf(
+                                    commentaire = "Réservation depuis l'application",
+                                    activites = listOf(
                                         ReservationActiviteCreate(
-                                            activity_id = detail.id,
-                                            date = selectedDate!!,
-                                            heure = selectedHeure!!,
+                                            activite_id = detail.id,        // <-- Changé ici
+                                            date_activite = selectedDate!!, // <-- Changé ici
+                                            heure_activite = selectedHeure!!,
                                             nb_participants = nbParticipants
                                         )
                                     )
                                 )
                                 scope.launch {
                                     try {
-                                        RetrofitClient.instance.createReservation("Bearer $token", reservation)
-                                        reservationSuccess = true
-                                        reservationError = false
-                                        // On ne met plus le delay() ni le onReservationSuccess() ici !
+                                        // On stocke la réponse au lieu de l'ignorer
+                                        val response = RetrofitClient.instance.createReservation(token, reservation)
+
+                                        if (response.isSuccessful) {
+                                            // Le serveur a dit OUI (200 OK)
+                                            reservationSuccess = true
+                                            reservationError = false
+                                        } else {
+                                            // Le serveur a dit NON (400, 401, etc.)
+                                            val errorBody = response.errorBody()?.string()
+                                            Log.e("POST", "Refus du serveur. Code: ${response.code()} - Erreur: $errorBody") // <-- L'ERREUR EST LÀ !
+                                            reservationError = true
+                                            reservationSuccess = false
+                                        }
                                     } catch (e: Exception) {
-                                        if (e is kotlinx.coroutines.CancellationException) throw e // Évite le crash
-                                        Log.e("POST", "Erreur réservation : ${e.message}", e)
+                                        if (e is kotlinx.coroutines.CancellationException) throw e
+                                        Log.e("POST", "Erreur réseau : ${e.message}", e)
                                         reservationError = true
                                         reservationSuccess = false
                                     }
