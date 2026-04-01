@@ -39,7 +39,7 @@ fun getStatusInfo(statusId: Int): Pair<String, Color> {
 }
 
 @Composable
-fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit) {
+fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit, onLogout: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sessionManager = remember { SessionManager(context) }
 
@@ -61,7 +61,7 @@ fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit) {
                 token = userToken!!,
                 onReservationClick = onReservationClick,
                 onLogout = {
-                    sessionManager.clearAuthToken()
+                    sessionManager.clearSession()
                     userToken = null
                     currentUserProfile = null
                 },
