@@ -36,11 +36,41 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 
-// --- 1. CARTE ---
+// ---------------------------------------------------------------------------
+// COORDONNÉES GPS FIXES PAR ACTIVITÉ (id BDD → lat, lon)
+// ---------------------------------------------------------------------------
+val coordonneesActivites = mapOf(
+    1  to Pair(43.2140, 5.5424), // Excursion en bateau        – Port de Cassis
+    2  to Pair(43.2192, 5.4502), // Randonnée Sugiton guidée   – Calanque de Sugiton
+    3  to Pair(43.2250, 5.4300), // Sortie VTT                 – Sentiers du Parc
+    4  to Pair(43.2112, 5.4178), // Plongée sous-marine        – Calanque de Morgiou
+    5  to Pair(43.1981, 5.5006), // Kayak guidé                – Calanque d'En-Vau
+    6  to Pair(43.2089, 5.3503), // Visite grotte Cosquer      – Cap Morgiou
+    7  to Pair(43.2030, 5.4210), // Escalade encadrée          – Falaises de Sormiou
+    8  to Pair(43.2278, 5.4389), // Parcours accrobranche      – Parc des Calanques
+    9  to Pair(43.2310, 5.4551), // Séance de yoga             – Domaine de Luminy
+    10 to Pair(43.2192, 5.4502), // Bivouac réglementé         – Zone Sugiton
+    11 to Pair(43.4367, 5.2150), // Vol en hélicoptère         – Héliport Marseille
+    12 to Pair(43.2089, 5.3503), // Initiation spéléologie     – Grottes Cap Morgiou
+    13 to Pair(43.1981, 5.5006), // Randonnée Belvédère En Vau – En-Vau
+    14 to Pair(43.1981, 5.5006), // Sortie kayak sunset        – En-Vau
+    15 to Pair(43.2310, 5.4551), // Bain sonore méditatif      – Luminy
+    16 to Pair(43.2112, 5.4178), // Exploration en paddle      – Morgiou
+    17 to Pair(43.2030, 5.4210), // Escalade grande voie       – Sormiou
+    18 to Pair(43.2250, 5.4300), // Atelier photo nature       – Sentiers du Parc
+    19 to Pair(43.2192, 5.4502)  // Randonnée botanique        – Sugiton
+)
+
+// --- 1. CARTE AVEC MARQUEURS CLIQUABLES ---
 @Composable
-fun MapScreen() {
+fun MapScreen(
+    listeActivites: List<Activite>,
+    onActiviteClick: (Activite) -> Unit
+) {
     val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         Configuration.getInstance().userAgentValue = context.packageName
     }
@@ -51,21 +81,76 @@ fun MapScreen() {
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
-                val startPoint = GeoPoint(43.2140, 5.4480)
-                controller.setZoom(12.0)
-                controller.setCenter(startPoint)
+                controller.setZoom(12.5)
+                controller.setCenter(GeoPoint(43.2140, 5.4300))
             }
+        },
+        update = { mapView ->
+            mapView.overlays.clear()
+
+            listeActivites.forEach { activite ->
+                val coords = coordonneesActivites[activite.id] ?: return@forEach
+
+                val tarifTxt = if (activite.tarif % 1 == 0.0)
+                    activite.tarif.toInt().toString()
+                else
+                    activite.tarif.toString()
+
+                val dureeTxt = activite.duree.split(":").let {
+                    if (it.size >= 2) "${it[0]}h${it[1]}" else activite.duree
+                }
+
+                val resume = activite.description.take(90) +
+                        if (activite.description.length > 90) "…" else ""
+
+                val marker = Marker(mapView).apply {
+                    position = GeoPoint(coords.first, coords.second)
+                    title = activite.nom
+                    snippet = "$tarifTxt € · $dureeTxt\n$resume"
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+
+                    setOnMarkerClickListener { m, _ ->
+                        if (m.isInfoWindowShown) {
+                            // 2e clic sur la bulle → ouvre le détail complet
+                            onActiviteClick(activite)
+                        } else {
+                            // 1er clic → ferme les autres bulles et ouvre celle-ci
+                            mapView.overlays
+                                .filterIsInstance<Marker>()
+                                .forEach { it.closeInfoWindow() }
+                            m.showInfoWindow()
+                        }
+                        true
+                    }
+                }
+                mapView.overlays.add(marker)
+            }
+
+            mapView.invalidate()
         }
     )
 }
 
-// --- 2. STRUCTURE PRINCIPALE (MODIFIÉE POUR LES RÔLES) ---
+// --- 2. STRUCTURE PRINCIPALE ---
 @Composable
 fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
     var selectedResDetail by remember { mutableStateOf<ReservationResponse?>(null) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedActivite by remember { mutableStateOf<Activite?>(null) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
+
+    // Activités chargées une seule fois, partagées avec la carte
+    val listeActivites = remember { mutableStateListOf<Activite>() }
+
+    LaunchedEffect(Unit) {
+        try {
+            val activites = RetrofitClient.instance.getActivites()
+            listeActivites.clear()
+            listeActivites.addAll(activites)
+        } catch (e: Exception) {
+            Log.e("API_ERROR", "Erreur chargement activités : ${e.message}")
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -117,7 +202,12 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
             when (selectedTab) {
                 0 -> {
                     if (selectedActivite == null) {
-                        HomeContent(roleId = roleId, onActiviteClick = { a -> selectedActivite = a }, onLogout = onLogout)
+                        HomeContent(
+                            roleId = roleId,
+                            listeActivitesParent = listeActivites,
+                            onActiviteClick = { a -> selectedActivite = a },
+                            onLogout = onLogout
+                        )
                     } else {
                         DetailActiviteScreen(
                             activiteId = selectedActivite!!.id,
@@ -129,7 +219,6 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
                 2 -> {
                     if (selectedResDetail == null) {
                         key(refreshTrigger) {
-                            // On passe onLogout à AccountScreen pour qu'il puisse l'appeler
                             AccountScreen(
                                 onReservationClick = { res -> selectedResDetail = res },
                                 onLogout = onLogout
@@ -146,7 +235,23 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
                         )
                     }
                 }
-                3 -> MapScreen()
+                3 -> {
+                    // Clic sur un marqueur → détail ; retour → revient à la carte
+                    if (selectedActivite != null) {
+                        DetailActiviteScreen(
+                            activiteId = selectedActivite!!.id,
+                            onBack = {
+                                selectedActivite = null
+                                selectedTab = 3
+                            }
+                        )
+                    } else {
+                        MapScreen(
+                            listeActivites = listeActivites,
+                            onActiviteClick = { activite -> selectedActivite = activite }
+                        )
+                    }
+                }
             }
         }
     }
@@ -154,7 +259,12 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
 
 // --- 3. CONTENU ACCUEIL ---
 @Composable
-fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -> Unit) {
+fun HomeContent(
+    roleId: Int,
+    listeActivitesParent: List<Activite>,
+    onActiviteClick: (Activite) -> Unit,
+    onLogout: () -> Unit
+) {
     val listeActivites = remember { mutableStateListOf<Activite>() }
     val listeTypes = remember { mutableStateListOf<TypeActivite>() }
     var isLoading by remember { mutableStateOf(true) }
@@ -162,9 +272,14 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
 
     LaunchedEffect(Unit) {
         try {
-            val activites = RetrofitClient.instance.getActivites()
-            listeActivites.clear()
-            listeActivites.addAll(activites)
+            if (listeActivitesParent.isNotEmpty()) {
+                listeActivites.clear()
+                listeActivites.addAll(listeActivitesParent)
+            } else {
+                val activites = RetrofitClient.instance.getActivites()
+                listeActivites.clear()
+                listeActivites.addAll(activites)
+            }
 
             val types = RetrofitClient.instance.getTypesActivites()
             listeTypes.clear()
@@ -264,7 +379,6 @@ fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) 
                 .fillMaxWidth()
                 .height(160.dp)
         ) {
-            // Image de fond du type
             if (imageUrl != null) {
                 AsyncImage(
                     model = imageUrl,
@@ -280,7 +394,6 @@ fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) 
                 )
             }
 
-            // Dégradé sombre en bas pour lisibilité du texte
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -295,7 +408,6 @@ fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) 
                     )
             )
 
-            // Texte + badge en bas à gauche
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -338,7 +450,6 @@ fun ActivitesDuTypeScreen(
             .fillMaxSize()
             .background(CalanquesLightGrey)
     ) {
-        // Header bleu avec bouton retour
         Row(
             modifier = Modifier
                 .fillMaxWidth()
