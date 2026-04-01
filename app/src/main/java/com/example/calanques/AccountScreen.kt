@@ -35,10 +35,7 @@ fun getStatusInfo(statusId: Int): Pair<String, Color> {
 }
 
 @Composable
-fun AccountScreen(
-    onReservationClick: (ReservationResponse) -> Unit,
-    onLogout: () -> Unit // AJOUTÉ : Reçu depuis MainActivity via HomeScreen
-) {
+fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit, onLogout: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val userToken = sessionManager.fetchAuthToken()
@@ -46,19 +43,33 @@ fun AccountScreen(
     var isEditing by remember { mutableStateOf(false) }
     var currentUserProfile by remember { mutableStateOf<UserResponse?>(null) }
 
-    // Si on n'a pas de token (sécurité), on appelle le logout pour retourner au login
-    if (userToken == null) {
-        LaunchedEffect(Unit) { onLogout() }
-        return
-    }
-
-    if (isEditing && currentUserProfile != null) {
-        EditProfileScreen(
-            user = currentUserProfile!!,
-            token = userToken,
-            onBack = { isEditing = false },
-            onSaveSuccess = { isEditing = false; currentUserProfile = null }
-        )
+    if (userToken != null) {
+        if (isEditing && currentUserProfile != null) {
+            EditProfileScreen(
+                user = currentUserProfile!!,
+                token = userToken!!,
+                onBack = { isEditing = false },
+                onSaveSuccess = { isEditing = false; currentUserProfile = null }
+            )
+        } else {
+            ProfileScreen(
+                token = userToken!!,
+                onReservationClick = onReservationClick,
+                onLogout = {
+                    sessionManager.clearSession()
+                    userToken = null
+                    currentUserProfile = null
+                },
+                onEditProfile = { profile ->
+                    currentUserProfile = profile
+                    isEditing = true
+                },
+                onProfileLoaded = { profile ->
+                    currentUserProfile = profile
+                },
+                userProfileState = currentUserProfile
+            )
+        }
     } else {
         ProfileScreen(
             token = userToken,

@@ -44,7 +44,6 @@ fun MapScreen() {
     LaunchedEffect(Unit) {
         Configuration.getInstance().userAgentValue = context.packageName
     }
-
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -67,6 +66,9 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
     var selectedActivite by remember { mutableStateOf<Activite?>(null) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
+    // Clé qui force PanierScreen à se recharger à chaque visite
+    var panierRefreshKey by remember { mutableIntStateOf(0) }
+
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = Color.White) {
@@ -84,7 +86,11 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Panier") },
                     label = { Text("Panier") },
                     selected = selectedTab == 1,
-                    onClick = { selectedTab = 1; selectedResDetail = null },
+                    onClick = {
+                        panierRefreshKey++
+                        selectedTab = 1
+                        selectedResDetail = null
+                    },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = CalanquesBlue,
                         selectedTextColor = CalanquesBlue
@@ -117,19 +123,28 @@ fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
             when (selectedTab) {
                 0 -> {
                     if (selectedActivite == null) {
-                        HomeContent(roleId = roleId, onActiviteClick = { a -> selectedActivite = a }, onLogout = onLogout)
+                        HomeContent(
+                            roleId = roleId,
+                            onActiviteClick = { a -> selectedActivite = a },
+                            onLogout = onLogout
+                        )
                     } else {
                         DetailActiviteScreen(
                             activiteId = selectedActivite!!.id,
-                            onBack = { selectedActivite = null }
+                            onBack = { selectedActivite = null },
+                            // Quand la réservation réussit → on va direct au panier
+                            onReservationSuccess = {
+                                selectedActivite = null
+                                panierRefreshKey++
+                                selectedTab = 1
+                            }
                         )
                     }
                 }
-                1 -> PanierScreen()
+                1 -> PanierScreen(refreshKey = panierRefreshKey)
                 2 -> {
                     if (selectedResDetail == null) {
                         key(refreshTrigger) {
-                            // On passe onLogout à AccountScreen pour qu'il puisse l'appeler
                             AccountScreen(
                                 onReservationClick = { res -> selectedResDetail = res },
                                 onLogout = onLogout
@@ -165,7 +180,6 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
             val activites = RetrofitClient.instance.getActivites()
             listeActivites.clear()
             listeActivites.addAll(activites)
-
             val types = RetrofitClient.instance.getTypesActivites()
             listeTypes.clear()
             listeTypes.addAll(types)
@@ -176,7 +190,6 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
         }
     }
 
-    // Si un type est sélectionné → on affiche ses activités
     if (selectedType != null) {
         val activitesDuType = listeActivites.filter { it.type_id == selectedType!!.id }
         ActivitesDuTypeScreen(
@@ -188,20 +201,14 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
         return
     }
 
-    // Écran principal : liste des types
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CalanquesLightGrey),
+        modifier = Modifier.fillMaxSize().background(CalanquesLightGrey),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Logo",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .padding(vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 16.dp),
             contentScale = ContentScale.Fit
         )
 
@@ -216,28 +223,12 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    Text(
-                        text = "Nos catégories",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = CalanquesBlue,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                    Text(
-                        text = "Choisissez une catégorie d'activité",
-                        fontSize = 14.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    Text("Nos catégories", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = CalanquesBlue, modifier = Modifier.padding(bottom = 4.dp))
+                    Text("Choisissez une catégorie d'activité", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
                 }
-
                 items(listeTypes) { type ->
                     val nbActivites = listeActivites.count { it.type_id == type.id }
-                    TypeActiviteCard(
-                        type = type,
-                        nbActivites = nbActivites,
-                        onClick = { selectedType = type }
-                    )
+                    TypeActiviteCard(type = type, nbActivites = nbActivites, onClick = { selectedType = type })
                 }
             }
         }
@@ -248,9 +239,7 @@ fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -
 @Composable
 fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) {
     val baseUrl = "http://webngo.sio.bts:8003/"
-    val imageUrl = if (!type.image_url.isNullOrBlank())
-        baseUrl + type.image_url.removePrefix("/")
-    else null
+    val imageUrl = if (!type.image_url.isNullOrBlank()) baseUrl + type.image_url.removePrefix("/") else null
 
     ElevatedCard(
         onClick = onClick,
@@ -259,66 +248,18 @@ fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) 
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-        ) {
-            // Image de fond du type
+        Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
             if (imageUrl != null) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = type.libelle,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+                AsyncImage(model = imageUrl, contentDescription = type.libelle, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(CalanquesBlue.copy(alpha = 0.15f))
-                )
+                Box(modifier = Modifier.fillMaxSize().background(CalanquesBlue.copy(alpha = 0.15f)))
             }
-
-            // Dégradé sombre en bas pour lisibilité du texte
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.65f)
-                            ),
-                            startY = 60f
-                        )
-                    )
-            )
-
-            // Texte + badge en bas à gauche
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = type.libelle,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
-                )
+            Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f)), startY = 60f)))
+            Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+                Text(type.libelle, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 Spacer(modifier = Modifier.height(4.dp))
-                Surface(
-                    color = CalanquesBlue.copy(alpha = 0.85f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "$nbActivites activité${if (nbActivites > 1) "s" else ""}",
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+                Surface(color = CalanquesBlue.copy(alpha = 0.85f), shape = RoundedCornerShape(8.dp)) {
+                    Text("$nbActivites activité${if (nbActivites > 1) "s" else ""}", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
                 }
             }
         }
@@ -327,47 +268,20 @@ fun TypeActiviteCard(type: TypeActivite, nbActivites: Int, onClick: () -> Unit) 
 
 // --- ÉCRAN ACTIVITÉS D'UN TYPE ---
 @Composable
-fun ActivitesDuTypeScreen(
-    type: TypeActivite,
-    activites: List<Activite>,
-    onActiviteClick: (Activite) -> Unit,
-    onBack: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CalanquesLightGrey)
-    ) {
-        // Header bleu avec bouton retour
+fun ActivitesDuTypeScreen(type: TypeActivite, activites: List<Activite>, onActiviteClick: (Activite) -> Unit, onBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().background(CalanquesLightGrey)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CalanquesBlue)
-                .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().background(CalanquesBlue).statusBarsPadding().padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(
-                    painter = painterResource(id = R.drawable.arrow_left),
-                    contentDescription = "Retour",
-                    tint = Color.White
-                )
+                Icon(painter = painterResource(id = R.drawable.arrow_left), contentDescription = "Retour", tint = Color.White)
             }
-            Text(
-                text = type.libelle,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
-            )
+            Text(type.libelle, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
         }
-
         if (activites.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    "Aucune activité disponible pour cette catégorie.",
-                    color = Color.Gray
-                )
+                Text("Aucune activité disponible pour cette catégorie.", color = Color.Gray)
             }
         } else {
             LazyColumn(
@@ -397,47 +311,17 @@ fun ActiviteCard(activite: Activite, onClick: () -> Unit) {
         colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
     ) {
         Column {
-            AsyncImage(
-                model = fullImageUrl,
-                contentDescription = activite.nom,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                contentScale = ContentScale.Crop
-            )
+            AsyncImage(model = fullImageUrl, contentDescription = activite.nom, modifier = Modifier.fillMaxWidth().height(150.dp), contentScale = ContentScale.Crop)
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = activite.nom,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = activite.description,
-                    fontSize = 13.sp,
-                    color = Color.Gray,
-                    maxLines = 2
-                )
+                Text(activite.nom, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(activite.description, fontSize = 13.sp, color = Color.Gray, maxLines = 2)
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     val tarifTxt = if (activite.tarif % 1 == 0.0) activite.tarif.toInt() else activite.tarif
-                    Text(
-                        text = "$tarifTxt €",
-                        fontSize = 18.sp,
-                        color = CalanquesBlue,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Surface(
-                        color = Color.LightGray.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
+                    Text("$tarifTxt €", fontSize = 18.sp, color = CalanquesBlue, fontWeight = FontWeight.ExtraBold)
+                    Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(8.dp)) {
                         Text(
-                            text = activite.duree.split(":").let {
-                                if (it.size >= 2) "${it[0]}h${it[1]}" else activite.duree
-                            },
+                            activite.duree.split(":").let { if (it.size >= 2) "${it[0]}h${it[1]}" else activite.duree },
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             fontSize = 12.sp
                         )
