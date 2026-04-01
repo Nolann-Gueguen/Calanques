@@ -38,7 +38,9 @@ fun getStatusInfo(statusId: Int): Pair<String, Color> {
 fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit, onLogout: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sessionManager = remember { SessionManager(context) }
-    val userToken = sessionManager.fetchAuthToken()
+
+    // CORRECTION 1 : On utilise var + remember pour pouvoir le modifier et mettre à jour l'UI
+    var userToken by remember { mutableStateOf(sessionManager.fetchAuthToken()) }
 
     var isEditing by remember { mutableStateOf(false) }
     var currentUserProfile by remember { mutableStateOf<UserResponse?>(null) }
@@ -57,8 +59,9 @@ fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit, onLogout: (
                 onReservationClick = onReservationClick,
                 onLogout = {
                     sessionManager.clearSession()
-                    userToken = null
+                    userToken = null // Ne plantera plus !
                     currentUserProfile = null
+                    onLogout() // Informe le parent (HomeScreen)
                 },
                 onEditProfile = { profile ->
                     currentUserProfile = profile
@@ -71,18 +74,12 @@ fun AccountScreen(onReservationClick: (ReservationResponse) -> Unit, onLogout: (
             )
         }
     } else {
-        ProfileScreen(
-            token = userToken,
-            onReservationClick = onReservationClick,
-            onLogout = onLogout, // Transmis ici
-            onEditProfile = { profile ->
-                currentUserProfile = profile
-                isEditing = true
+        LoginScreen(
+            onLoginSuccess = { token ->
+                sessionManager.saveAuthToken(token)
+                userToken = token // L'écran va se recharger et afficher le ProfileScreen
             },
-            onProfileLoaded = { profile ->
-                currentUserProfile = profile
-            },
-            userProfileState = currentUserProfile
+            onNavigateToSignUp = { /* Gérer la navigation vers l'inscription si besoin */ }
         )
     }
 }

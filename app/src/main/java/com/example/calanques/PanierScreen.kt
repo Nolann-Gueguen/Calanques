@@ -49,7 +49,7 @@ fun PanierScreen(refreshKey: Int = 0) {
         // On vérifie qu'on est connecté avant de contacter l'API
         if (token.isNotEmpty()) {
             try {
-                val response = RetrofitClient.instance.getMyReservations("Bearer $token")
+                val response = RetrofitClient.instance.getMyReservations(token)
                 reservations.addAll(response.filter { it.status_reservation_id == 1 })
             } catch (e: Exception) {
                 Log.e("PanierScreen", "Erreur lors de la récupération : ${e.message}")
@@ -121,7 +121,7 @@ fun PanierScreen(refreshKey: Int = 0) {
                                 onDelete = {
                                     scope.launch {
                                         try {
-                                            RetrofitClient.instance.deleteReservation("Bearer $token", reservation.id)
+                                            RetrofitClient.instance.deleteReservation(token, reservation.id)
                                             reservations.remove(reservation)
                                         } catch (e: Exception) {
                                             Log.e("Panier", "Erreur suppression BDD", e)
