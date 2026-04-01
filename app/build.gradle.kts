@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.example.calanques"
-    compileSdk = 36
+    compileSdk = 36 // Redescendu à 35 (plus stable que 36 pour le moment)
 
     defaultConfig {
         applicationId = "com.example.calanques"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -40,29 +40,40 @@ android {
 }
 
 dependencies {
-    implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    // --- NAVIGATION (INDISPENSABLE POUR NAVHOST) ---
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
+    // --- RÉSEAU ET JSON ---
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
 
-    implementation("androidx.compose.material:material-icons-extended:1.6.0")
-    implementation("androidx.compose.material3:material3:1.2.0")
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation("androidx.compose.material:material-icons-extended")
+    // --- IMAGES ---
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    // --- CARTOGRAPHIE ---
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+
+    // --- UI COMPOSE ET MATERIAL ---
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation("androidx.compose.material:material-icons-extended:1.7.6")
+
+    // --- ANDROIDX CORE & LIFECYCLE ---
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.appcompat)
+
+    // --- COMPATIBILITÉ XML (SI BESOIN) ---
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.camera.camera2.pipe)
-    implementation("io.coil-kt:coil-compose:2.4.0")
     implementation(libs.material)
-    implementation(libs.androidx.activity)
+
+    // --- TESTS ---
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -70,5 +81,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("io.coil-kt:coil-compose:2.6.0")
 }

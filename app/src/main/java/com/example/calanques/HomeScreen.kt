@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -58,14 +59,12 @@ fun MapScreen() {
     )
 }
 
-// --- 2. STRUCTURE PRINCIPALE ---
+// --- 2. STRUCTURE PRINCIPALE (MODIFIÉE POUR LES RÔLES) ---
 @Composable
-fun MainScreen() {
+fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
     var selectedResDetail by remember { mutableStateOf<ReservationResponse?>(null) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedActivite by remember { mutableStateOf<Activite?>(null) }
-
-    // Trigger pour forcer le rafraîchissement de l'AccountScreen après annulation
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
     Scaffold(
@@ -118,7 +117,7 @@ fun MainScreen() {
             when (selectedTab) {
                 0 -> {
                     if (selectedActivite == null) {
-                        HomeContent(onActiviteClick = { a -> selectedActivite = a })
+                        HomeContent(roleId = roleId, onActiviteClick = { a -> selectedActivite = a }, onLogout = onLogout)
                     } else {
                         DetailActiviteScreen(
                             activiteId = selectedActivite!!.id,
@@ -130,7 +129,11 @@ fun MainScreen() {
                 2 -> {
                     if (selectedResDetail == null) {
                         key(refreshTrigger) {
-                            AccountScreen(onReservationClick = { res -> selectedResDetail = res })
+                            // On passe onLogout à AccountScreen pour qu'il puisse l'appeler
+                            AccountScreen(
+                                onReservationClick = { res -> selectedResDetail = res },
+                                onLogout = onLogout
+                            )
                         }
                     } else {
                         ReservationDetailScreen(
@@ -151,7 +154,7 @@ fun MainScreen() {
 
 // --- 3. CONTENU ACCUEIL ---
 @Composable
-fun HomeContent(onActiviteClick: (Activite) -> Unit) {
+fun HomeContent(roleId: Int, onActiviteClick: (Activite) -> Unit, onLogout: () -> Unit) {
     val listeActivites = remember { mutableStateListOf<Activite>() }
     val listeTypes = remember { mutableStateListOf<TypeActivite>() }
     var isLoading by remember { mutableStateOf(true) }
