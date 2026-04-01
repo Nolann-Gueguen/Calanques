@@ -4,35 +4,45 @@ import android.content.Context
 import android.content.SharedPreferences
 
 class SessionManager(context: Context) {
-    // Création du fichier de préférences nommé "user_session"
     private val prefs: SharedPreferences = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
 
     companion object {
         private const val USER_TOKEN = "auth_token"
+        private const val USER_ROLE = "user_role" // Nouvelle clé pour le rôle
     }
 
     /**
-     * Sauvegarde le token JWT après une connexion réussie
+     * Sauvegarde le token JWT
      */
     fun saveAuthToken(token: String) {
-        val editor = prefs.edit()
-        editor.putString(USER_TOKEN, token)
-        editor.apply() // Sauvegarde en arrière-plan
+        prefs.edit().putString(USER_TOKEN, token).apply()
     }
 
     /**
-     * Récupère le token pour savoir si l'utilisateur est toujours connecté
+     * Sauvegarde le rôle (1 pour Client, 2 pour Admin)
+     */
+    fun saveUserRole(roleId: Int) {
+        prefs.edit().putInt(USER_ROLE, roleId).apply()
+    }
+
+    /**
+     * Récupère le token
      */
     fun fetchAuthToken(): String? {
         return prefs.getString(USER_TOKEN, null)
     }
 
     /**
-     * Efface le token (pour la déconnexion)
+     * Récupère le rôle (par défaut 1 = Client)
      */
-    fun clearAuthToken() {
-        val editor = prefs.edit()
-        editor.remove(USER_TOKEN)
-        editor.apply()
+    fun getUserRole(): Int {
+        return prefs.getInt(USER_ROLE, 1)
+    }
+
+    /**
+     * Déconnexion complète
+     */
+    fun clearSession() {
+        prefs.edit().clear().apply()
     }
 }
