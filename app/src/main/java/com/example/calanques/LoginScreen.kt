@@ -1,11 +1,9 @@
 package com.example.calanques
 
 import android.util.Log
-import retrofit2.HttpException
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,23 +11,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.calanques.ui.theme.CalanquesBlue
-import com.example.calanques.ui.theme.CalanquesGrey
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
-// --- 1. ÉCRAN DE CONNEXION (SYNCHRONISÉ) ---
+// --- 1. ÉCRAN DE CONNEXION (MIS À JOUR AVEC GESTION DES RÔLES) ---
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit, // Reçoit maintenant le Token en paramètre
+    onLoginSuccess: (String) -> Unit,
     onNavigateToSignUp: () -> Unit
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
@@ -80,10 +81,21 @@ fun LoginScreen(
                     isLoading = true
                     coroutineScope.launch {
                         try {
-                            // L'API attend 'username' pour l'email [cite: 540]
+                            // 1. Connexion pour obtenir le Token
                             val response = RetrofitClient.instance.login(username = email, password = password)
+                            val token = "${response.token_type} ${response.access_token}"
+
+                            // 2. Récupération du profil pour avoir le role_id
+                            val userProfile = RetrofitClient.instance.getMe(token)
+
+                            // 3. Sauvegarde dans le SessionManager (Token + Rôle)
+                            sessionManager.saveAuthToken(token)
+                            sessionManager.saveUserRole(userProfile.role_id)
+
                             isLoading = false
-                            onLoginSuccess(response.access_token) // On envoie le token à AccountScreen
+                            Log.d("API_DEBUG", "Connexion réussie. Rôle: ${userProfile.role_id}")
+
+                            onLoginSuccess(token)
                         } catch (e: Exception) {
                             isLoading = false
                             errorMessage = "Identifiants incorrects ou serveur éteint."
@@ -106,7 +118,7 @@ fun LoginScreen(
     }
 }
 
-// --- 2. ÉCRAN DE CRÉATION DE COMPTE (AVEC LOGS) ---
+// --- 2. ÉCRAN DE CRÉATION DE COMPTE ---
 @Composable
 fun SignUpScreen(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
     var prenom by remember { mutableStateOf("") }
@@ -158,7 +170,6 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
                     coroutineScope.launch {
                         try {
                             val request = UserCreateRequest(nom=nom, prenom=prenom, email=email, password=password, adresse=adresse, cp=cp, ville=ville, telephone=telephone, role_id=1)
-                            Log.d("API_DEBUG", "Envoi : $request")
                             RetrofitClient.instance.registerUser(request)
                             isLoading = false
                             onSignUpSuccess()

@@ -58,7 +58,7 @@ fun MapScreen() {
     )
 }
 
-// --- 2. STRUCTURE PRINCIPALE ---
+// --- 2. STRUCTURE PRINCIPALE (MODIFIÉE POUR LES RÔLES) ---
 @Composable
 fun HomeScreen(roleId: Int, onLogout: () -> Unit) {
     var selectedResDetail by remember { mutableStateOf<ReservationResponse?>(null) }
