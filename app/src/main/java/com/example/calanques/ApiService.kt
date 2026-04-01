@@ -37,10 +37,11 @@ interface ApiService {
         @Body reservation: ReservationCreate
     ): Response<ReservationResponse>
 
-    @DELETE("api/reservations/{reservation_id}")
-    suspend fun deleteReservation(
-        @Header("Authorization") token: String, // <-- Ajout du token ici
-        @Path("reservation_id") id: Int
+    @DELETE("api/reservations/{reservation_id}/activities/{act_id}")
+    suspend fun deleteActivityFromReservation(
+        @Header("Authorization") token: String,
+        @Path("reservation_id") reservationId: Int,
+        @Path("act_id") activityId: Int
     ): Response<Unit>
 
     @PUT("api/reservations/{id}/status")
